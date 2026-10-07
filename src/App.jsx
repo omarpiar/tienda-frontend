@@ -8,9 +8,13 @@ function App() {
 
         <h1>Frontend React</h1>
 
-        <p>
-          Proyecto de prueba para despliegue automático en Azure.
-        </p>
+       <p>
+  🚀 ¡Despliegue automático funcionando!
+</p>
+
+<div className="version">
+  Versión de prueba #2
+</div>
 
         <div className="status">
           <span className="dot"></span>
