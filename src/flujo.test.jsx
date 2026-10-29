@@ -11,7 +11,7 @@ const fetchReal = globalThis.fetch;
 
 beforeAll(async () => {
   process.env.PORT = '5081';
-  servidor = (await import('../../mock-api/server.mjs')).default;
+  servidor = (await import('../mock-api/server.mjs')).default;
   await new Promise((r) => setTimeout(r, 300));
 });
 afterAll(() => {

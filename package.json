@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "mock": "node ../mock-api/server.mjs",
+    "mock": "node mock-api/server.mjs",
     "demo": "node scripts/demo.mjs"
   },
   "dependencies": {
