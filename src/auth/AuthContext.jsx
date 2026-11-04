@@ -1,6 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { apiFetch, registrarAlExpirarSesion } from '../api/client';
-import { guardarCredencial, iniciarSesionSinConexion } from './offline';
+import {
+  cambiarRolSinConexion,
+  guardarCredencial,
+  guardarRolEnDispositivo,
+  iniciarSesionSinConexion,
+} from './offline';
 
 const CLAVE_SESION = 'puntopyme.sesion';
 const AuthContext = createContext(null);
@@ -32,22 +37,47 @@ export function AuthProvider({ children }) {
 
   useEffect(() => registrarAlExpirarSesion(cerrarSesion), [cerrarSesion]);
 
-  const iniciarSesion = useCallback(async (nombreUsuario, pin, rol) => {
+  const iniciarSesion = useCallback(async (nombreUsuario, pin) => {
     try {
       const respuesta = await apiFetch('/api/auth/login', {
         metodo: 'POST',
-        cuerpo: { nombreUsuario, pin, rol },
+        cuerpo: { nombreUsuario, pin },
       });
       await guardarCredencial({ nombreUsuario, pin, respuesta });
       guardar({ ...respuesta, modoLocal: false });
     } catch (e) {
       if (e.code !== 'SIN_CONEXION') throw e;
-      const local = await iniciarSesionSinConexion(nombreUsuario, pin, rol);
+      const local = await iniciarSesionSinConexion(nombreUsuario, pin);
       guardar({ ...local, modoLocal: true });
     }
   }, []);
 
-  const valor = useMemo(() => ({ sesion, iniciarSesion, cerrarSesion }), [sesion, iniciarSesion, cerrarSesion]);
+  const cambiarRol = useCallback(async (rol) => {
+    if (!sesion || sesion.usuario.rol === rol) return;
+
+    if (!sesion.modoLocal && sesion.token) {
+      try {
+        const respuesta = await apiFetch('/api/auth/rol', {
+          metodo: 'POST',
+          cuerpo: { rol },
+          token: sesion.token,
+        });
+        guardarRolEnDispositivo({ nombreUsuario: sesion.usuario.nombreUsuario, respuesta });
+        guardar({ ...respuesta, modoLocal: false });
+        return;
+      } catch (e) {
+        if (e.code !== 'SIN_CONEXION') throw e;
+      }
+    }
+
+    const local = cambiarRolSinConexion(sesion.usuario.nombreUsuario, rol);
+    guardar({ ...local, modoLocal: true });
+  }, [sesion]);
+
+  const valor = useMemo(
+    () => ({ sesion, iniciarSesion, cambiarRol, cerrarSesion }),
+    [sesion, iniciarSesion, cambiarRol, cerrarSesion],
+  );
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;
 }
 

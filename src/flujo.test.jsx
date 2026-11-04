@@ -35,11 +35,10 @@ const montar = () =>
     </AuthProvider>,
   );
 
-async function entrar(usuario, pin, rol) {
+async function entrar(usuario, pin) {
   const u = userEvent.setup();
   await u.type(screen.getByLabelText(/usuario o celular/i), usuario);
   await u.type(screen.getByLabelText(/^pin/i), pin);
-  await u.click(screen.getByRole('radio', { name: rol }));
   await u.click(screen.getByRole('button', { name: /iniciar sesión/i }));
   return u;
 }
@@ -48,7 +47,7 @@ describe('flujo completo', () => {
   it('cajero: vende con internet, vende sin internet y al volver se sincroniza', async () => {
     localStorage.clear();
     montar();
-    const u = await entrar('laura', '4821', 'Cajero');
+    const u = await entrar('laura', '4821');
 
     // Catálogo descargado: se busca el producto por nombre
     await screen.findByText('Agua natural 1L');
@@ -83,7 +82,7 @@ describe('flujo completo', () => {
   it('login incorrecto muestra el mensaje y un cajero no ve Reportes ni Usuarios', async () => {
     localStorage.clear();
     montar();
-    const u = await entrar('laura', '0000', 'Cajero');
+    const u = await entrar('laura', '0000');
     await screen.findByText('Usuario o PIN incorrectos');
 
     await u.type(screen.getByLabelText(/^pin/i), '4821');
@@ -91,13 +90,17 @@ describe('flujo completo', () => {
     await screen.findByText('Nueva venta');
     expect(screen.queryByRole('button', { name: 'Reportes' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Usuarios' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /cambiar a administrador/i })).toBeNull();
   });
 
   it('administrador: ve el reporte con la venta del test anterior y crea un usuario', async () => {
     localStorage.clear();
     montar();
-    const u = await entrar('admin', '1234', 'Administrador');
+    const u = await entrar('admin', '1234');
     await screen.findByText('Nueva venta');
+
+    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+    await screen.findByRole('button', { name: 'Reportes' });
 
     await u.click(screen.getByRole('button', { name: 'Reportes' }));
     await screen.findByText('Ticket promedio');
@@ -122,14 +125,14 @@ describe('flujo completo', () => {
   it('HU-01 sin conexión: después de entrar una vez con internet, el PIN se valida en el dispositivo', async () => {
     localStorage.clear();
     montar();
-    let u = await entrar('laura', '4821', 'Cajero');
+    let u = await entrar('laura', '4821');
     await screen.findByText('Nueva venta');
     await u.click(screen.getByRole('button', { name: /cerrar sesión/i }));
 
     globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
 
     // PIN incorrecto: se rechaza aun sin internet
-    u = await entrar('laura', '0000', 'Cajero');
+    u = await entrar('laura', '0000');
     await screen.findByText('Usuario o PIN incorrectos');
 
     // PIN correcto: entra con la sesión guardada
@@ -137,5 +140,25 @@ describe('flujo completo', () => {
     await u.click(screen.getByRole('button', { name: /iniciar sesión/i }));
     await screen.findByText('Nueva venta');
     expect(screen.getByText('Laura Gómez')).toBeTruthy();
+  });
+
+  it('administrador sin conexión puede cambiar a un rol que ya usó en el dispositivo', async () => {
+    localStorage.clear();
+    montar();
+    let u = await entrar('admin', '1234');
+    await screen.findByText('Nueva venta');
+
+    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+    await screen.findByRole('button', { name: 'Reportes' });
+    await u.click(screen.getByRole('button', { name: /cerrar sesión/i }));
+
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+
+    u = await entrar('admin', '1234');
+    await screen.findByText('Nueva venta');
+    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+
+    await screen.findByRole('button', { name: 'Reportes' });
+    expect(screen.queryByRole('button', { name: /cambiar a cajero/i })).toBeTruthy();
   });
 });

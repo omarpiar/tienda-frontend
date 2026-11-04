@@ -17,12 +17,16 @@ const VISTAS = [
 ];
 
 export default function App() {
-  const { sesion, cerrarSesion } = useAuth();
+  const { sesion, cambiarRol, cerrarSesion } = useAuth();
   const { enLinea, pendientes, aviso, limpiarAviso } = useSync();
   const [vista, setVista] = useState('venta');
+  const [errorRol, setErrorRol] = useState('');
 
   // Al cambiar de persona o de rol, se vuelve a la pantalla de venta
-  useEffect(() => setVista('venta'), [sesion?.usuario?.id, sesion?.usuario?.rol]);
+  useEffect(() => {
+    setVista('venta');
+    setErrorRol('');
+  }, [sesion?.usuario?.id, sesion?.usuario?.rol]);
 
   useEffect(() => {
     if (!aviso) return;
@@ -35,6 +39,17 @@ export default function App() {
   const rol = sesion.usuario.rol;
   const visibles = VISTAS.filter((v) => !v.solo || v.solo === rol);
   const conflictos = pendientes.filter((p) => p.estado !== 'pendiente').length;
+  const puedeCambiarRol = (sesion.usuario.roles?.length ?? 0) > 1;
+
+  async function alternarRol() {
+    const otro = rol === 'Administrador' ? 'Cajero' : 'Administrador';
+    try {
+      setErrorRol('');
+      await cambiarRol(otro);
+    } catch (e) {
+      setErrorRol(e.message);
+    }
+  }
 
   return (
     <div className="app">
@@ -46,9 +61,16 @@ export default function App() {
           </span>
           <span>{sesion.usuario.nombreCompleto}</span>
           <span className="etiqueta etiqueta--rol">{rol}</span>
+          {puedeCambiarRol && (
+            <button className="boton boton--texto" onClick={alternarRol}>
+              Cambiar a {rol === 'Administrador' ? 'Cajero' : 'Administrador'}
+            </button>
+          )}
           <button className="boton boton--texto" onClick={cerrarSesion}>Cerrar sesión</button>
         </div>
       </header>
+
+      {errorRol && <p className="aviso aviso--error" role="alert">{errorRol}</p>}
 
       <nav className="nav" aria-label="Secciones">
         {visibles.map((v) => (

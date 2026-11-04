@@ -53,6 +53,8 @@ const detalle = (p, costos) => {
   };
 };
 const usuarioDto = (u) => ({ id: u.id, nombreCompleto: u.nombreCompleto, nombreUsuario: u.nombreUsuario, rol: u.rolId === 1 ? 'Administrador' : 'Cajero', activo: u.activo });
+const rolesDe = (u) => (u.rolId === 1 ? ['Administrador', 'Cajero'] : ['Cajero']);
+const sesionDto = (u, rol) => ({ id: u.id, nombreCompleto: u.nombreCompleto, nombreUsuario: u.nombreUsuario, rol, roles: rolesDe(u) });
 const ventaDto = (v) => ({ ...v, detalles: v.detalles.map((d) => ({ ...d })) });
 
 const firmar = (u, rol) => {
@@ -80,7 +82,6 @@ ruta('POST', '/api/auth/login', (req, { cuerpo }) => {
   const err = {};
   if (!String(cuerpo.nombreUsuario ?? '').trim()) err.nombreUsuario = ['Escribe tu usuario.'];
   if (!/^\d{4,6}$/.test(cuerpo.pin ?? '')) err.pin = ['El PIN debe tener de 4 a 6 dígitos.'];
-  if (!['Administrador', 'Cajero'].includes(cuerpo.rol)) err.rol = ['Elige Administrador o Cajero.'];
   if (Object.keys(err).length) throw validacion(err);
 
   const u = usuarios.find((x) => x.nombreUsuario === norm(cuerpo.nombreUsuario));
@@ -95,8 +96,19 @@ ruta('POST', '/api/auth/login', (req, { cuerpo }) => {
     throw malas();
   }
   u.intentos = 0; u.bloqueadoHasta = 0;
+  const rol = 'Cajero';
+  return [200, { ...firmar(u, rol), usuario: sesionDto(u, rol) }];
+});
+
+ruta('POST', '/api/auth/rol', (req, { cuerpo }) => {
+  const c = autenticar(req);
+  if (!['Administrador', 'Cajero'].includes(cuerpo.rol)) throw validacion({ rol: ['Elige Administrador o Cajero.'] });
+
+  const u = usuarios.find((x) => x.id === c.sub);
+  if (!u || !u.activo) throw new Problema(401, 'CREDENCIALES_INVALIDAS', 'Usuario o PIN incorrectos');
   if (cuerpo.rol === 'Administrador' && u.rolId !== 1) throw new Problema(403, 'ROL_NO_PERMITIDO', 'Tu usuario no tiene permiso para entrar como Administrador.');
-  return [200, { ...firmar(u, cuerpo.rol), usuario: { id: u.id, nombreCompleto: u.nombreCompleto, nombreUsuario: u.nombreUsuario, rol: cuerpo.rol } }];
+
+  return [200, { ...firmar(u, cuerpo.rol), usuario: sesionDto(u, cuerpo.rol) }];
 });
 
 ruta('GET', '/api/productos', (req, { q }) => {
