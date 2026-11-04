@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { apiFetch, errorDeFormulario } from '../api/client';
 import { dinero } from '../format';
 import Campo from './Campo';
@@ -12,15 +12,26 @@ export default function ProductoForm({ producto, token, onGuardado, onCerrar }) 
   const [f, setF] = useState({
     nombre: producto?.nombre ?? '',
     sku: producto?.sku ?? '',
-    categoria: producto?.categoria ?? '',
+    categoriaId: producto?.categoriaId ?? '',
     precioVenta: producto?.precioVenta ?? '',
     costoCompra: producto?.costoCompra ?? '',
     stock: '',
     stockMinimo: producto?.stockMinimo ?? 5,
   });
+  const [categorias, setCategorias] = useState(null);
   const [errores, setErrores] = useState({});
   const [general, setGeneral] = useState('');
   const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    let cancelado = false;
+    apiFetch('/api/categorias', { token })
+      .then((r) => !cancelado && setCategorias(r))
+      .catch((e) => !cancelado && setGeneral(e.message));
+    return () => {
+      cancelado = true;
+    };
+  }, [token]);
 
   const cambia = (campo) => (e) => setF((x) => ({ ...x, [campo]: e.target.value }));
 
@@ -36,7 +47,7 @@ export default function ProductoForm({ producto, token, onGuardado, onCerrar }) 
     setGuardando(true);
     try {
       const cuerpo = {
-        nombre: f.nombre, sku: f.sku, categoria: f.categoria || null,
+        nombre: f.nombre, sku: f.sku, categoriaId: f.categoriaId ? Number(f.categoriaId) : null,
         precioVenta: precio, costoCompra: num(f.costoCompra) ?? 0, stockMinimo: num(f.stockMinimo),
         ...(editando ? {} : { stock: num(f.stock) ?? 0 }),
       };
@@ -62,8 +73,17 @@ export default function ProductoForm({ producto, token, onGuardado, onCerrar }) 
         <Campo etiqueta="Código (SKU)" error={errores.sku} ayuda="El que viene en el código de barras o el que tú elijas.">
           <input value={f.sku} onChange={cambia('sku')} maxLength={50} />
         </Campo>
-        <Campo etiqueta="Categoría (opcional)" error={errores.categoria}>
-          <input value={f.categoria} onChange={cambia('categoria')} maxLength={100} />
+        <Campo
+          etiqueta="Categoría (opcional)"
+          error={errores.categoriaId}
+          ayuda={categorias?.length === 0 ? 'Todavía no hay categorías. Créalas en la sección Categorías.' : undefined}
+        >
+          <select value={f.categoriaId} onChange={cambia('categoriaId')} disabled={categorias === null}>
+            <option value="">Sin categoría</option>
+            {(categorias ?? []).map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
+          </select>
         </Campo>
 
         <div className="rejilla">

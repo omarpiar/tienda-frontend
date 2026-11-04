@@ -12,9 +12,11 @@ class Problema extends Error {
 const validacion = (errores) => new Problema(400, 'VALIDACION', 'Los datos enviados no son válidos.', { errors: errores });
 
 // ---------- datos ----------
-let sigUsuario = 1, sigProducto = 1, sigVenta = 1;
+let sigUsuario = 1, sigCategoria = 1, sigProducto = 1, sigHistorial = 1, sigVenta = 1;
 const usuarios = [];
+const categorias = [];
 const productos = [];
+const historial = [];
 const ventas = [];
 
 const nuevoUsuario = (nombreCompleto, nombreUsuario, pin, rol) => {
@@ -23,6 +25,13 @@ const nuevoUsuario = (nombreCompleto, nombreUsuario, pin, rol) => {
 };
 nuevoUsuario('Administrador PuntoPyme', 'admin', '1234', 'Administrador');
 nuevoUsuario('Laura Gómez', 'laura', '4821', 'Cajero');
+
+const nuevaCategoria = (nombre) => {
+  const c = { id: sigCategoria++, nombre };
+  categorias.push(c); return c;
+};
+['Bebidas', 'Panadería', 'Limpieza', 'Abarrotes', 'Lácteos', 'Botanas'].forEach(nuevaCategoria);
+const categoriaPorNombre = (nombre) => categorias.find((c) => c.nombre === nombre);
 
 [
   ['Refresco 600ml', '7501055300013', 'Bebidas', 18, 13, 40, 10],
@@ -38,19 +47,31 @@ nuevoUsuario('Laura Gómez', 'laura', '4821', 'Cajero');
   ['Jabón de barra', '7501025400071', 'Limpieza', 14, 10, 2, 6],
   ['Galletas surtidas', '7501000400086', 'Botanas', 22, 16, 30, 8],
 ].forEach(([nombre, sku, categoria, precioVenta, costoCompra, stock, stockMinimo]) =>
-  productos.push({ id: sigProducto++, nombre, sku, categoria, precioVenta, costoCompra, stock, stockMinimo }));
+  productos.push({ id: sigProducto++, nombre, sku, categoriaId: categoriaPorNombre(categoria).id, precioVenta, costoCompra, stock, stockMinimo, eliminado: false }));
 
 // ---------- utilidades ----------
 const estadoStock = (p) => (p.stock <= 0 ? 'Agotado' : p.stock <= p.stockMinimo ? 'Bajo' : 'Normal');
-const lista = (p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, categoria: p.categoria, precioVenta: p.precioVenta, stock: p.stock, stockMinimo: p.stockMinimo, estadoStock: estadoStock(p) });
+const categoriaDe = (p) => categorias.find((c) => c.id === p.categoriaId);
+const lista = (p) => ({
+  id: p.id, nombre: p.nombre, sku: p.sku, categoriaId: p.categoriaId, categoria: categoriaDe(p)?.nombre ?? null,
+  precioVenta: p.precioVenta, stock: p.stock, stockMinimo: p.stockMinimo, estadoStock: estadoStock(p),
+});
 const detalle = (p, costos) => {
   const ganancia = costos ? +(p.precioVenta - p.costoCompra).toFixed(2) : null;
   return {
-    id: p.id, nombre: p.nombre, sku: p.sku, categoria: p.categoria, precioVenta: p.precioVenta,
-    costoCompra: costos ? p.costoCompra : null, ganancia,
+    id: p.id, nombre: p.nombre, sku: p.sku, categoriaId: p.categoriaId, categoria: categoriaDe(p)?.nombre ?? null,
+    precioVenta: p.precioVenta, costoCompra: costos ? p.costoCompra : null, ganancia,
     margenPorcentaje: costos ? (p.precioVenta === 0 ? 0 : Math.round((ganancia / p.precioVenta) * 1000) / 10) : null,
     stock: p.stock, stockMinimo: p.stockMinimo, estadoStock: estadoStock(p),
   };
+};
+const registrarHistorial = (producto, c, accion, descripcion, stockAnterior, stockNuevo) => {
+  const u = usuarios.find((x) => x.id === c.sub);
+  historial.push({
+    id: sigHistorial++, productoId: producto.id, accion, descripcion,
+    fechaUtc: new Date().toISOString(), stockAnterior, stockNuevo,
+    usuarioId: u?.id ?? 0, usuario: u?.nombreCompleto ?? 'Sistema',
+  });
 };
 const usuarioDto = (u) => ({ id: u.id, nombreCompleto: u.nombreCompleto, nombreUsuario: u.nombreUsuario, rol: u.rolId === 1 ? 'Administrador' : 'Cajero', activo: u.activo });
 const rolesDe = (u) => (u.rolId === 1 ? ['Administrador', 'Cajero'] : ['Cajero']);
@@ -111,12 +132,50 @@ ruta('POST', '/api/auth/rol', (req, { cuerpo }) => {
   return [200, { ...firmar(u, cuerpo.rol), usuario: sesionDto(u, cuerpo.rol) }];
 });
 
+const categoriaDto = (c) => ({
+  id: c.id, nombre: c.nombre,
+  productos: productos.filter((p) => !p.eliminado && p.categoriaId === c.id).length,
+});
+function validarCategoria(b, excluirId) {
+  const nombre = String(b.nombre ?? '').trim();
+  if (!nombre) throw validacion({ nombre: ['Escribe el nombre de la categoría.'] });
+  if (nombre.length > 100) throw validacion({ nombre: ['El nombre admite hasta 100 caracteres.'] });
+  if (categorias.some((c) => c.nombre.toLowerCase() === nombre.toLowerCase() && c.id !== excluirId))
+    throw new Problema(409, 'CATEGORIA_DUPLICADA', 'Ya existe una categoría con ese nombre.');
+  return nombre;
+}
+ruta('GET', '/api/categorias', (req) => {
+  autenticar(req);
+  return [200, [...categorias].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(categoriaDto)];
+});
+ruta('POST', '/api/categorias', (req, { cuerpo }) => {
+  soloAdmin(autenticar(req));
+  const c = nuevaCategoria(validarCategoria(cuerpo));
+  return [201, categoriaDto(c)];
+});
+ruta('PUT', '/api/categorias/(\\d+)', (req, { m, cuerpo }) => {
+  soloAdmin(autenticar(req));
+  const c = categorias.find((x) => x.id === +m[1]);
+  if (!c) throw new Problema(404, 'CATEGORIA_NO_ENCONTRADA', 'No encontramos esa categoría.');
+  c.nombre = validarCategoria(cuerpo, c.id);
+  return [200, categoriaDto(c)];
+});
+ruta('DELETE', '/api/categorias/(\\d+)', (req, { m }) => {
+  soloAdmin(autenticar(req));
+  const c = categorias.find((x) => x.id === +m[1]);
+  if (!c) throw new Problema(404, 'CATEGORIA_NO_ENCONTRADA', 'No encontramos esa categoría.');
+  if (productos.some((p) => !p.eliminado && p.categoriaId === c.id))
+    throw new Problema(409, 'CATEGORIA_EN_USO', 'No puedes eliminar una categoría que todavía tiene productos.');
+  categorias.splice(categorias.indexOf(c), 1);
+  return [204, null];
+});
+
 ruta('GET', '/api/productos', (req, { q }) => {
   autenticar(req);
   const estado = q.get('estado') ?? 'todos';
   if (!['todos', 'stockBajo', 'agotados'].includes(estado)) throw validacion({ estado: ['Usa todos, stockBajo o agotados.'] });
   const buscar = (q.get('buscar') ?? '').trim().toLowerCase();
-  let r = productos.filter((p) => !buscar || p.nombre.toLowerCase().includes(buscar) || p.sku.toLowerCase().includes(buscar));
+  let r = productos.filter((p) => !p.eliminado && (!buscar || p.nombre.toLowerCase().includes(buscar) || p.sku.toLowerCase().includes(buscar)));
   if (estado === 'stockBajo') r = r.filter((p) => p.stock <= p.stockMinimo);
   if (estado === 'agotados') r = r.filter((p) => p.stock === 0);
   r.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -125,13 +184,22 @@ ruta('GET', '/api/productos', (req, { q }) => {
 });
 ruta('GET', '/api/productos/sku/([^/]+)', (req, { m }) => {
   autenticar(req);
-  const p = productos.find((x) => x.sku.toLowerCase() === decodeURIComponent(m[1]).trim().toLowerCase());
+  const p = productos.find((x) => !x.eliminado && x.sku.toLowerCase() === decodeURIComponent(m[1]).trim().toLowerCase());
   if (!p) throw new Problema(404, 'PRODUCTO_NO_ENCONTRADO', 'No encontramos un producto con ese código.');
   return [200, lista(p)];
 });
+ruta('GET', '/api/productos/(\\d+)/historial', (req, { m }) => {
+  soloAdmin(autenticar(req));
+  const p = productos.find((x) => x.id === +m[1] && !x.eliminado);
+  if (!p) throw new Problema(404, 'PRODUCTO_NO_ENCONTRADO', 'No encontramos ese producto.');
+  const items = historial.filter((h) => h.productoId === p.id)
+    .sort((a, b) => b.fechaUtc.localeCompare(a.fechaUtc) || b.id - a.id);
+  return [200, items.map(({ id, accion, descripcion, fechaUtc, stockAnterior, stockNuevo, usuarioId, usuario }) =>
+    ({ id, accion, descripcion, fechaUtc, stockAnterior, stockNuevo, usuarioId, usuario }))];
+});
 ruta('GET', '/api/productos/(\\d+)', (req, { m }) => {
   const c = autenticar(req);
-  const p = productos.find((x) => x.id === +m[1]);
+  const p = productos.find((x) => x.id === +m[1] && !x.eliminado);
   if (!p) throw new Problema(404, 'PRODUCTO_NO_ENCONTRADO', 'No encontramos ese producto.');
   return [200, detalle(p, c.role === 'Administrador')];
 });
@@ -139,8 +207,10 @@ ruta('GET', '/api/productos/(\\d+)', (req, { m }) => {
 function validarProducto(b, alta, excluirId) {
   const err = {};
   const nombre = String(b.nombre ?? '').trim(), sku = String(b.sku ?? '').trim();
+  const categoriaId = b.categoriaId == null || b.categoriaId === '' ? null : Number(b.categoriaId);
   if (!nombre) err.nombre = ['Escribe el nombre del producto.'];
   if (!sku) err.sku = ['Escribe el código (SKU).'];
+  if (categoriaId !== null && !categorias.some((c) => c.id === categoriaId)) err.categoriaId = ['La categoría seleccionada ya no existe.'];
   if (b.precioVenta == null) err.precioVenta = ['Escribe el precio de venta.'];
   else if (b.precioVenta < 0) err.precioVenta = ['El precio no puede ser negativo.'];
   if (b.costoCompra < 0) err.costoCompra = ['El costo no puede ser negativo.'];
@@ -149,21 +219,41 @@ function validarProducto(b, alta, excluirId) {
   if (Object.keys(err).length) throw validacion(err);
   const precio = +b.precioVenta, costo = +(b.costoCompra ?? 0);
   if (precio < costo) throw new Problema(400, 'PRECIO_MENOR_AL_COSTO', 'El precio de venta no puede ser menor al costo de compra.');
-  if (productos.some((p) => p.sku.toLowerCase() === sku.toLowerCase() && p.id !== excluirId)) throw new Problema(409, 'SKU_DUPLICADO', 'Ya existe un producto con ese código (SKU).');
-  return { nombre, sku, categoria: String(b.categoria ?? '').trim() || null, precioVenta: precio, costoCompra: costo, stockMinimo: b.stockMinimo ?? 5 };
+  if (productos.some((p) => !p.eliminado && p.sku.toLowerCase() === sku.toLowerCase() && p.id !== excluirId)) throw new Problema(409, 'SKU_DUPLICADO', 'Ya existe un producto con ese código (SKU).');
+  return { nombre, sku, categoriaId, precioVenta: precio, costoCompra: costo, stockMinimo: b.stockMinimo ?? 5 };
 }
 ruta('POST', '/api/productos', (req, { cuerpo }) => {
-  soloAdmin(autenticar(req));
-  const p = { id: sigProducto++, ...validarProducto(cuerpo, true), stock: cuerpo.stock ?? 0 };
+  const c = autenticar(req); soloAdmin(c);
+  const p = { id: sigProducto++, ...validarProducto(cuerpo, true), stock: cuerpo.stock ?? 0, eliminado: false };
   productos.push(p);
+  registrarHistorial(p, c, 'Creación', `Producto creado con stock inicial ${p.stock}.`, 0, p.stock);
   return [201, detalle(p, true)];
 });
 ruta('PUT', '/api/productos/(\\d+)', (req, { m, cuerpo }) => {
-  soloAdmin(autenticar(req));
-  const p = productos.find((x) => x.id === +m[1]);
+  const c = autenticar(req); soloAdmin(c);
+  const p = productos.find((x) => x.id === +m[1] && !x.eliminado);
   if (!p) throw new Problema(404, 'PRODUCTO_NO_ENCONTRADO', 'No encontramos ese producto.');
   Object.assign(p, validarProducto(cuerpo, false, p.id)); // el stock no se toca
+  registrarHistorial(p, c, 'Actualización', 'Se actualizaron los datos del producto.', p.stock, p.stock);
   return [200, detalle(p, true)];
+});
+ruta('POST', '/api/productos/(\\d+)/stock', (req, { m, cuerpo }) => {
+  const c = autenticar(req); soloAdmin(c);
+  const p = productos.find((x) => x.id === +m[1] && !x.eliminado);
+  if (!p) throw new Problema(404, 'PRODUCTO_NO_ENCONTRADO', 'No encontramos ese producto.');
+  if (!Number.isInteger(cuerpo.cantidad) || cuerpo.cantidad <= 0) throw validacion({ cantidad: ['Indica una cantidad mayor que cero.'] });
+  const anterior = p.stock;
+  p.stock += cuerpo.cantidad;
+  registrarHistorial(p, c, 'Reposición de stock', `Se repusieron ${cuerpo.cantidad} unidades.`, anterior, p.stock);
+  return [200, detalle(p, true)];
+});
+ruta('DELETE', '/api/productos/(\\d+)', (req, { m }) => {
+  const c = autenticar(req); soloAdmin(c);
+  const p = productos.find((x) => x.id === +m[1] && !x.eliminado);
+  if (!p) throw new Problema(404, 'PRODUCTO_NO_ENCONTRADO', 'No encontramos ese producto.');
+  p.eliminado = true;
+  registrarHistorial(p, c, 'Eliminación', 'Producto eliminado del inventario. Su historial de ventas se conserva.', p.stock, p.stock);
+  return [204, null];
 });
 
 ruta('POST', '/api/ventas', (req, { cuerpo: b }) => {
@@ -182,14 +272,14 @@ ruta('POST', '/api/ventas', (req, { cuerpo: b }) => {
 
   const pedidos = new Map();
   for (const d of b.detalles) pedidos.set(d.productoId, (pedidos.get(d.productoId) ?? 0) + d.cantidad);
-  const faltan = [...pedidos.keys()].filter((id) => !productos.some((p) => p.id === id));
+  const faltan = [...pedidos.keys()].filter((id) => !productos.some((p) => p.id === id && !p.eliminado));
   if (faltan.length) throw new Problema(400, 'PRODUCTO_NO_ENCONTRADO', 'Algunos productos del carrito ya no existen.', { productoIds: faltan });
-  const faltantes = [...pedidos].map(([id, n]) => ({ p: productos.find((x) => x.id === id), n })).filter(({ p, n }) => n > p.stock)
+  const faltantes = [...pedidos].map(([id, n]) => ({ p: productos.find((x) => x.id === id && !x.eliminado), n })).filter(({ p, n }) => n > p.stock)
     .map(({ p, n }) => ({ productoId: p.id, nombre: p.nombre, disponible: p.stock, solicitado: n }));
   if (faltantes.length) throw new Problema(409, 'STOCK_INSUFICIENTE', 'Algunos productos no tienen existencias suficientes.', { faltantes });
 
   const detalles = [...pedidos].map(([id, n]) => {
-    const p = productos.find((x) => x.id === id);
+    const p = productos.find((x) => x.id === id && !x.eliminado);
     return { productoId: id, nombre: p.nombre, cantidad: n, precioUnitario: p.precioVenta, subtotal: +(p.precioVenta * n).toFixed(2) };
   });
   const total = +detalles.reduce((s, d) => s + d.subtotal, 0).toFixed(2);
@@ -198,7 +288,7 @@ ruta('POST', '/api/ventas', (req, { cuerpo: b }) => {
     if (b.montoRecibido == null || b.montoRecibido < total) throw new Problema(400, 'MONTO_INSUFICIENTE', 'El monto recibido no alcanza para cubrir el total.');
     montoRecibido = b.montoRecibido; cambio = +(b.montoRecibido - total).toFixed(2);
   }
-  for (const [id, n] of pedidos) productos.find((x) => x.id === id).stock -= n;
+  for (const [id, n] of pedidos) productos.find((x) => x.id === id && !x.eliminado).stock -= n;
   const u = usuarios.find((x) => x.id === c.sub);
   const venta = {
     id: sigVenta++, folio: '', idLocal: b.idLocal, fechaVentaUtc: new Date(b.fechaVentaUtc).toISOString(), fechaRegistroUtc: new Date().toISOString(),
@@ -298,7 +388,7 @@ const server = http.createServer(async (req, res) => {
       if (m) {
         const [status, datos] = r.fn(req, { q: url.searchParams, m, cuerpo });
         res.writeHead(status, { 'Content-Type': 'application/json', ...cors });
-        return res.end(JSON.stringify(datos));
+        return res.end(status === 204 ? undefined : JSON.stringify(datos));
       }
     }
     throw new Problema(404, 'RUTA_NO_ENCONTRADA', 'Ruta no encontrada.');

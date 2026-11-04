@@ -7,10 +7,12 @@ import InventarioPage from './pages/InventarioPage';
 import PendientesPage from './pages/PendientesPage';
 import ReportesPage from './pages/ReportesPage';
 import UsuariosPage from './pages/UsuariosPage';
+import CategoriasPage from './pages/CategoriasPage';
 
 const VISTAS = [
   { id: 'venta', texto: 'Vender', solo: null },
   { id: 'inventario', texto: 'Inventario', solo: null },
+  { id: 'categorias', texto: 'Categorías', solo: 'Administrador' },
   { id: 'reportes', texto: 'Reportes', solo: 'Administrador' },
   { id: 'usuarios', texto: 'Usuarios', solo: 'Administrador' },
   { id: 'pendientes', texto: 'Pendientes', solo: null },
@@ -88,6 +90,7 @@ export default function App() {
       <main className="contenido">
         {vista === 'venta' && <VentaPage />}
         {vista === 'inventario' && <InventarioPage />}
+        {vista === 'categorias' && rol === 'Administrador' && <CategoriasPage />}
         {vista === 'reportes' && rol === 'Administrador' && <ReportesPage />}
         {vista === 'usuarios' && rol === 'Administrador' && <UsuariosPage />}
         {vista === 'pendientes' && <PendientesPage />}

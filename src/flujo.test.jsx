@@ -21,6 +21,7 @@ afterAll(() => {
 
 afterEach(() => {
   globalThis.fetch = fetchReal;
+  vi.restoreAllMocks();
   cleanup();
 });
 
@@ -160,5 +161,52 @@ describe('flujo completo', () => {
 
     await screen.findByRole('button', { name: 'Reportes' });
     expect(screen.queryByRole('button', { name: /cambiar a cajero/i })).toBeTruthy();
+  });
+
+  it('administrador: crea categoría, repone stock, consulta historial y elimina un producto', async () => {
+    localStorage.clear();
+    montar();
+    const u = await entrar('admin', '1234');
+    await screen.findByText('Nueva venta');
+    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+    await screen.findByRole('button', { name: 'Categorías' });
+
+    await u.click(screen.getByRole('button', { name: 'Categorías' }));
+    await u.click(await screen.findByRole('button', { name: '+ Nueva categoría' }));
+    let dialogo = await screen.findByRole('dialog');
+    await u.type(within(dialogo).getByLabelText(/nombre/i), 'Pruebas E2E');
+    await u.click(within(dialogo).getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await screen.findByText('Pruebas E2E');
+
+    await u.click(screen.getByRole('button', { name: 'Inventario' }));
+    await u.click(await screen.findByRole('button', { name: '+ Agregar producto' }));
+    dialogo = await screen.findByRole('dialog');
+    await u.type(within(dialogo).getByLabelText(/nombre/i), 'Producto E2E');
+    await u.type(within(dialogo).getByLabelText(/código/i), 'E2E-001');
+    await within(dialogo).findByRole('option', { name: 'Pruebas E2E' });
+    await u.selectOptions(within(dialogo).getByLabelText(/categoría/i), 'Pruebas E2E');
+    await u.type(within(dialogo).getByLabelText(/precio de venta/i), '100');
+    await u.type(within(dialogo).getByLabelText(/costo de compra/i), '50');
+    await u.type(within(dialogo).getByLabelText(/stock inicial/i), '2');
+    await u.type(within(dialogo).getByLabelText(/stock mínimo/i), '1');
+    await u.click(within(dialogo).getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await screen.findByText('Producto E2E');
+
+    await u.click(await screen.findByRole('button', { name: /Producto E2E/ }));
+    dialogo = await screen.findByRole('dialog');
+    await u.type(within(dialogo).getByLabelText(/reponer stock/i), '5');
+    await u.click(within(dialogo).getByRole('button', { name: 'Reponer' }));
+    await within(dialogo).findByText('Stock repuesto correctamente.');
+
+    await u.click(within(dialogo).getByRole('button', { name: 'Ver historial' }));
+    await within(dialogo).findByText('Reposición de stock');
+    await within(dialogo).findByText('Creación');
+
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await u.click(within(dialogo).getByRole('button', { name: 'Eliminar producto' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Producto E2E')).toBeNull());
   });
 });
