@@ -26,6 +26,23 @@ function leer() {
   }
 }
 
+function guardarTodas(todas) {
+  localStorage.setItem(CLAVE, JSON.stringify(todas));
+}
+
+function rolesGuardados(registro) {
+  return Object.keys(registro.roles ?? {});
+}
+
+function sesionDe(guardada, rol, roles) {
+  const vigente = guardada.expiraEnUtc && new Date(guardada.expiraEnUtc) > new Date();
+  return {
+    token: vigente ? guardada.token : null,
+    expiraEnUtc: guardada.expiraEnUtc,
+    usuario: { ...guardada.usuario, rol, roles },
+  };
+}
+
 /** Se llama después de un login exitoso con internet. */
 export async function guardarCredencial({ nombreUsuario, pin, respuesta }) {
   const todas = leer();
@@ -45,11 +62,29 @@ export async function guardarCredencial({ nombreUsuario, pin, respuesta }) {
       },
     },
   };
-  localStorage.setItem(CLAVE, JSON.stringify(todas));
+  guardarTodas(todas);
 }
 
-/** Valida el PIN contra la huella guardada. Solo permite roles ya usados con internet en este dispositivo. */
-export async function iniciarSesionSinConexion(nombreUsuario, pin, rol) {
+/** Guarda el token de un rol al que se cambió con internet, sin volver a pedir el PIN. */
+export function guardarRolEnDispositivo({ nombreUsuario, respuesta }) {
+  const todas = leer();
+  const clave = normalizarUsuario(nombreUsuario);
+  const registro = todas[clave];
+  if (!registro) return;
+
+  registro.roles = {
+    ...registro.roles,
+    [respuesta.usuario.rol]: {
+      token: respuesta.token,
+      expiraEnUtc: respuesta.expiraEnUtc,
+      usuario: respuesta.usuario,
+    },
+  };
+  guardarTodas(todas);
+}
+
+/** Valida el PIN contra la huella guardada y entra con Cajero (o el primer rol guardado). */
+export async function iniciarSesionSinConexion(nombreUsuario, pin) {
   const registro = leer()[normalizarUsuario(nombreUsuario)];
 
   if (!registro) {
@@ -64,15 +99,31 @@ export async function iniciarSesionSinConexion(nombreUsuario, pin, rol) {
     throw new ApiError({ status: 401, code: 'CREDENCIALES_INVALIDAS', detail: 'Usuario o PIN incorrectos' });
   }
 
-  const guardada = registro.roles[rol];
+  const roles = rolesGuardados(registro);
+  if (roles.length === 0) {
+    throw new ApiError({
+      status: 403,
+      code: 'ROL_NO_PERMITIDO',
+      detail: 'Sin conexión no hay un rol guardado para este usuario en el dispositivo.',
+    });
+  }
+
+  const rol = roles.includes('Cajero') ? 'Cajero' : roles[0];
+  return sesionDe(registro.roles[rol], rol, roles);
+}
+
+/** Cambia de rol sin conexión solo si ese rol ya se usó antes en este dispositivo. */
+export function cambiarRolSinConexion(nombreUsuario, rol) {
+  const registro = leer()[normalizarUsuario(nombreUsuario)];
+  const guardada = registro?.roles?.[rol];
+
   if (!guardada) {
     throw new ApiError({
       status: 403,
       code: 'ROL_NO_PERMITIDO',
-      detail: 'Sin conexión solo puedes entrar con un rol que ya usaste en este dispositivo.',
+      detail: 'Sin conexión solo puedes cambiar a un rol que ya usaste en este dispositivo.',
     });
   }
 
-  const vigente = guardada.expiraEnUtc && new Date(guardada.expiraEnUtc) > new Date();
-  return { token: vigente ? guardada.token : null, expiraEnUtc: guardada.expiraEnUtc, usuario: guardada.usuario };
+  return sesionDe(guardada, rol, rolesGuardados(registro));
 }
