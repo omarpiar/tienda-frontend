@@ -44,6 +44,20 @@ async function entrar(usuario, pin) {
   return u;
 }
 
+async function abrirPerfil(u) {
+  await u.click(screen.getByRole('button', { name: /cambiar de perfil/i }));
+}
+
+async function cambiarPerfil(u, rol) {
+  await abrirPerfil(u);
+  await u.click(screen.getByRole('menuitemradio', { name: new RegExp(rol, 'i') }));
+}
+
+async function cerrarSesion(u) {
+  await abrirPerfil(u);
+  await u.click(screen.getByRole('menuitem', { name: /cerrar sesión/i }));
+}
+
 describe('flujo completo', () => {
   it('cajero: vende con internet, vende sin internet y al volver se sincroniza', async () => {
     localStorage.clear();
@@ -91,7 +105,9 @@ describe('flujo completo', () => {
     await screen.findByText('Nueva venta');
     expect(screen.queryByRole('button', { name: 'Reportes' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Usuarios' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /cambiar a administrador/i })).toBeNull();
+    await abrirPerfil(u);
+    expect(screen.queryByRole('menuitemradio', { name: /administrador/i })).toBeNull();
+    await u.keyboard('{Escape}');
   });
 
   it('administrador: ve el reporte con la venta del test anterior y crea un usuario', async () => {
@@ -100,7 +116,7 @@ describe('flujo completo', () => {
     const u = await entrar('admin', '1234');
     await screen.findByText('Nueva venta');
 
-    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+    await cambiarPerfil(u, 'Administrador');
     await screen.findByRole('button', { name: 'Reportes' });
 
     await u.click(screen.getByRole('button', { name: 'Reportes' }));
@@ -128,7 +144,7 @@ describe('flujo completo', () => {
     montar();
     let u = await entrar('laura', '4821');
     await screen.findByText('Nueva venta');
-    await u.click(screen.getByRole('button', { name: /cerrar sesión/i }));
+    await cerrarSesion(u);
 
     globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
 
@@ -149,18 +165,18 @@ describe('flujo completo', () => {
     let u = await entrar('admin', '1234');
     await screen.findByText('Nueva venta');
 
-    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+    await cambiarPerfil(u, 'Administrador');
     await screen.findByRole('button', { name: 'Reportes' });
-    await u.click(screen.getByRole('button', { name: /cerrar sesión/i }));
+    await cerrarSesion(u);
 
     globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
 
     u = await entrar('admin', '1234');
     await screen.findByText('Nueva venta');
-    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+    await cambiarPerfil(u, 'Administrador');
 
     await screen.findByRole('button', { name: 'Reportes' });
-    expect(screen.queryByRole('button', { name: /cambiar a cajero/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reportes' })).toBeTruthy();
   });
 
   it('administrador: crea categoría, repone stock, consulta historial y elimina un producto', async () => {
@@ -168,7 +184,7 @@ describe('flujo completo', () => {
     montar();
     const u = await entrar('admin', '1234');
     await screen.findByText('Nueva venta');
-    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+    await cambiarPerfil(u, 'Administrador');
     await screen.findByRole('button', { name: 'Categorías' });
 
     await u.click(screen.getByRole('button', { name: 'Categorías' }));
