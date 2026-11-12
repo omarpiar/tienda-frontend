@@ -21,6 +21,7 @@ afterAll(() => {
 
 afterEach(() => {
   globalThis.fetch = fetchReal;
+  vi.restoreAllMocks();
   cleanup();
 });
 
@@ -35,11 +36,10 @@ const montar = () =>
     </AuthProvider>,
   );
 
-async function entrar(usuario, pin, rol) {
+async function entrar(usuario, pin) {
   const u = userEvent.setup();
   await u.type(screen.getByLabelText(/usuario o celular/i), usuario);
   await u.type(screen.getByLabelText(/^pin/i), pin);
-  await u.click(screen.getByRole('radio', { name: rol }));
   await u.click(screen.getByRole('button', { name: /iniciar sesión/i }));
   return u;
 }
@@ -48,7 +48,7 @@ describe('flujo completo', () => {
   it('cajero: vende con internet, vende sin internet y al volver se sincroniza', async () => {
     localStorage.clear();
     montar();
-    const u = await entrar('laura', '4821', 'Cajero');
+    const u = await entrar('laura', '4821');
 
     // Catálogo descargado: se busca el producto por nombre
     await screen.findByText('Agua natural 1L');
@@ -83,7 +83,7 @@ describe('flujo completo', () => {
   it('login incorrecto muestra el mensaje y un cajero no ve Reportes ni Usuarios', async () => {
     localStorage.clear();
     montar();
-    const u = await entrar('laura', '0000', 'Cajero');
+    const u = await entrar('laura', '0000');
     await screen.findByText('Usuario o PIN incorrectos');
 
     await u.type(screen.getByLabelText(/^pin/i), '4821');
@@ -91,13 +91,17 @@ describe('flujo completo', () => {
     await screen.findByText('Nueva venta');
     expect(screen.queryByRole('button', { name: 'Reportes' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Usuarios' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /cambiar a administrador/i })).toBeNull();
   });
 
   it('administrador: ve el reporte con la venta del test anterior y crea un usuario', async () => {
     localStorage.clear();
     montar();
-    const u = await entrar('admin', '1234', 'Administrador');
+    const u = await entrar('admin', '1234');
     await screen.findByText('Nueva venta');
+
+    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+    await screen.findByRole('button', { name: 'Reportes' });
 
     await u.click(screen.getByRole('button', { name: 'Reportes' }));
     await screen.findByText('Ticket promedio');
@@ -122,14 +126,14 @@ describe('flujo completo', () => {
   it('HU-01 sin conexión: después de entrar una vez con internet, el PIN se valida en el dispositivo', async () => {
     localStorage.clear();
     montar();
-    let u = await entrar('laura', '4821', 'Cajero');
+    let u = await entrar('laura', '4821');
     await screen.findByText('Nueva venta');
     await u.click(screen.getByRole('button', { name: /cerrar sesión/i }));
 
     globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
 
     // PIN incorrecto: se rechaza aun sin internet
-    u = await entrar('laura', '0000', 'Cajero');
+    u = await entrar('laura', '0000');
     await screen.findByText('Usuario o PIN incorrectos');
 
     // PIN correcto: entra con la sesión guardada
@@ -137,5 +141,72 @@ describe('flujo completo', () => {
     await u.click(screen.getByRole('button', { name: /iniciar sesión/i }));
     await screen.findByText('Nueva venta');
     expect(screen.getByText('Laura Gómez')).toBeTruthy();
+  });
+
+  it('administrador sin conexión puede cambiar a un rol que ya usó en el dispositivo', async () => {
+    localStorage.clear();
+    montar();
+    let u = await entrar('admin', '1234');
+    await screen.findByText('Nueva venta');
+
+    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+    await screen.findByRole('button', { name: 'Reportes' });
+    await u.click(screen.getByRole('button', { name: /cerrar sesión/i }));
+
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+
+    u = await entrar('admin', '1234');
+    await screen.findByText('Nueva venta');
+    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+
+    await screen.findByRole('button', { name: 'Reportes' });
+    expect(screen.queryByRole('button', { name: /cambiar a cajero/i })).toBeTruthy();
+  });
+
+  it('administrador: crea categoría, repone stock, consulta historial y elimina un producto', async () => {
+    localStorage.clear();
+    montar();
+    const u = await entrar('admin', '1234');
+    await screen.findByText('Nueva venta');
+    await u.click(screen.getByRole('button', { name: /cambiar a administrador/i }));
+    await screen.findByRole('button', { name: 'Categorías' });
+
+    await u.click(screen.getByRole('button', { name: 'Categorías' }));
+    await u.click(await screen.findByRole('button', { name: '+ Nueva categoría' }));
+    let dialogo = await screen.findByRole('dialog');
+    await u.type(within(dialogo).getByLabelText(/nombre/i), 'Pruebas E2E');
+    await u.click(within(dialogo).getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await screen.findByText('Pruebas E2E');
+
+    await u.click(screen.getByRole('button', { name: 'Inventario' }));
+    await u.click(await screen.findByRole('button', { name: '+ Agregar producto' }));
+    dialogo = await screen.findByRole('dialog');
+    await u.type(within(dialogo).getByLabelText(/nombre/i), 'Producto E2E');
+    await u.type(within(dialogo).getByLabelText(/código/i), 'E2E-001');
+    await within(dialogo).findByRole('option', { name: 'Pruebas E2E' });
+    await u.selectOptions(within(dialogo).getByLabelText(/categoría/i), 'Pruebas E2E');
+    await u.type(within(dialogo).getByLabelText(/precio de venta/i), '100');
+    await u.type(within(dialogo).getByLabelText(/costo de compra/i), '50');
+    await u.type(within(dialogo).getByLabelText(/stock inicial/i), '2');
+    await u.type(within(dialogo).getByLabelText(/stock mínimo/i), '1');
+    await u.click(within(dialogo).getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await screen.findByText('Producto E2E');
+
+    await u.click(await screen.findByRole('button', { name: /Producto E2E/ }));
+    dialogo = await screen.findByRole('dialog');
+    await u.type(within(dialogo).getByLabelText(/reponer stock/i), '5');
+    await u.click(within(dialogo).getByRole('button', { name: 'Reponer' }));
+    await within(dialogo).findByText('Stock repuesto correctamente.');
+
+    await u.click(within(dialogo).getByRole('button', { name: 'Ver historial' }));
+    await within(dialogo).findByText('Reposición de stock');
+    await within(dialogo).findByText('Creación');
+
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await u.click(within(dialogo).getByRole('button', { name: 'Eliminar producto' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Producto E2E')).toBeNull());
   });
 });

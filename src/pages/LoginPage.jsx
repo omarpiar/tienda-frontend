@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 
-const ROLES = ['Cajero', 'Administrador'];
-
 export default function LoginPage() {
   const { iniciarSesion } = useAuth();
   const [usuario, setUsuario] = useState('');
   const [pin, setPin] = useState('');
-  const [rol, setRol] = useState('Cajero');
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [espera, setEspera] = useState(0);
@@ -27,7 +24,7 @@ export default function LoginPage() {
     setError('');
     setEnviando(true);
     try {
-      await iniciarSesion(usuario, pin, rol);
+      await iniciarSesion(usuario, pin);
     } catch (err) {
       setPin('');
       if (err.status === 429) setEspera(err.retryAfter ?? 60);
@@ -71,16 +68,6 @@ export default function LoginPage() {
           />
           <small id="ayuda-pin">De 4 a 6 dígitos.</small>
         </label>
-
-        <fieldset className="roles">
-          <legend>Entrar como</legend>
-          {ROLES.map((r) => (
-            <label key={r} className={`roles__opcion ${rol === r ? 'roles__opcion--activa' : ''}`}>
-              <input type="radio" name="rol" value={r} checked={rol === r} onChange={() => setRol(r)} />
-              {r}
-            </label>
-          ))}
-        </fieldset>
 
         {error && (
           <p className="aviso aviso--error" role="alert">
