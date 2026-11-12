@@ -100,6 +100,17 @@ export default function InventarioPage() {
     refrescarCatalogo(); // la caja ve de inmediato el cambio
   }
 
+  function alActualizar() {
+    setRecarga((n) => n + 1);
+    refrescarCatalogo();
+  }
+
+  function alEliminar() {
+    setSeleccionado(null);
+    setRecarga((n) => n + 1);
+    refrescarCatalogo();
+  }
+
   return (
     <>
       <div className="titulo-fila">
@@ -189,6 +200,8 @@ export default function InventarioPage() {
           token={sesion.token}
           esAdmin={esAdmin}
           onEditar={(detalle) => setFormulario({ producto: detalle })}
+          onActualizado={alActualizar}
+          onEliminado={alEliminar}
           onCerrar={() => setSeleccionado(null)}
         />
       )}
