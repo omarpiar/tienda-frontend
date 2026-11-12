@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { IconoCandado, IconoCheck, IconoDestello, IconoTienda } from '../components/Iconos';
+
+const BENEFICIOS = [
+  'Vende incluso si se cae el internet.',
+  'Tu inventario siempre al día.',
+  'Reportes claros para decidir mejor.',
+];
 
 export default function LoginPage() {
   const { iniciarSesion } = useAuth();
@@ -40,9 +47,59 @@ export default function LoginPage() {
 
   return (
     <main className="login">
+      <div className="login__brillo login__brillo--uno" aria-hidden="true" />
+      <div className="login__brillo login__brillo--dos" aria-hidden="true" />
+
+      <section className="login__presentacion" aria-label="PuntoPyme">
+        <div className="login__marca">
+          <span className="logo logo--grande" aria-hidden="true">
+            <IconoTienda size={24} />
+          </span>
+          <span>PuntoPyme</span>
+        </div>
+
+        <h1>
+          Tu negocio, en orden.
+          <span> Sin complicaciones.</span>
+        </h1>
+        <p className="login__texto">
+          El punto de venta que se adapta a tu día: cobra rápido, cuida tu inventario y toma
+          mejores decisiones desde cualquier dispositivo.:v
+        </p>
+
+        <ul className="login__beneficios">
+          {BENEFICIOS.map((b) => (
+            <li key={b}>
+              <span className="login__check" aria-hidden="true">
+                <IconoCheck size={15} />
+              </span>
+              {b}
+            </li>
+          ))}
+        </ul>
+
+        <div className="login__vitrina" aria-hidden="true">
+          <div className="login__dato login__dato--destacado">
+            <span className="login__dato-icono"><IconoDestello size={18} /></span>
+            <span>Ventas de hoy</span>
+            <strong>$2,480.00</strong>
+            <small>+12% vs. ayer</small>
+          </div>
+          <div className="login__dato">
+            <span className="login__dato-icono"><IconoCandado size={18} /></span>
+            <span>Modo sin conexión</span>
+            <strong>Listo</strong>
+            <small>Sigue vendiendo</small>
+          </div>
+        </div>
+      </section>
+
       <form className="login__panel" onSubmit={enviar} noValidate>
-        <h1 className="marca">PuntoPyme</h1>
-        <p className="login__lema">Ventas e inventario de tu negocio, incluso sin internet.</p>
+        <div className="login__cabecera">
+          <span className="eyebrow">Bienvenido de nuevo</span>
+          <h2>Inicia sesión</h2>
+          <p>Usa tu usuario y PIN para entrar a tu espacio de trabajo.</p>
+        </div>
 
         <label className="campo">
           <span>Usuario o celular</span>
@@ -75,9 +132,17 @@ export default function LoginPage() {
           </p>
         )}
 
-        <button className="boton boton--primario" disabled={!puedeEnviar}>
+        <button className="boton boton--primario boton--entrar" disabled={!puedeEnviar}>
           {enviando ? 'Entrando…' : 'Iniciar sesión'}
         </button>
+
+        <p className="login__nota">
+          <IconoCandado size={17} />
+          <span>
+            Entrarás como <strong>Cajero</strong>. Si tu usuario es administrador, podrás cambiar
+            de perfil sin cerrar la sesión.
+          </span>
+        </p>
       </form>
     </main>
   );
