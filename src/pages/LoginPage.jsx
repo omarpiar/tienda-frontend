@@ -64,7 +64,7 @@ export default function LoginPage() {
         </h1>
         <p className="login__texto">
           El punto de venta que se adapta a tu día: cobra rápido, cuida tu inventario y toma
-          mejores decisiones desde cualquier dispositivo.
+          mejores decisiones desde cualquier dispositivo.:v
         </p>
 
         <ul className="login__beneficios">
