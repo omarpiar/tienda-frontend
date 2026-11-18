@@ -116,6 +116,13 @@ export const IconoDestello = (props) => (
   </Svg>
 );
 
+export const IconoHistorial = (props) => (
+  <Svg {...props}>
+    <path d="M6 3.5h12a1 1 0 0 1 1 1v16l-3.5-2-3.5 2-3.5-2L5 20.5v-16a1 1 0 0 1 1-1Z" />
+    <path d="M9 8h6M9 12h6M9 16h4" />
+  </Svg>
+);
+
 export const IconoEtiqueta = (props) => (
   <Svg {...props}>
     <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7a1 1 0 0 1 .7.3l7.8 7.8a1 1 0 0 1 0 1.4l-7.7 7.7a1 1 0 0 1-1.4 0l-7.8-7.8a1 1 0 0 1-.3-.7Z" />

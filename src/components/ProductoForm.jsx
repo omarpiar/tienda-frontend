@@ -76,7 +76,7 @@ export default function ProductoForm({ producto, token, onGuardado, onCerrar }) 
         <Campo
           etiqueta="Categoría (opcional)"
           error={errores.categoriaId}
-          ayuda={categorias?.length === 0 ? 'Todavía no hay categorías. Créalas en la sección Categorías.' : undefined}
+          ayuda={categorias?.length === 0 ? 'Todavía no hay categorías. Créalas en la pestaña Categorías de Inventario.' : undefined}
         >
           <select value={f.categoriaId} onChange={cambia('categoriaId')} disabled={categorias === null}>
             <option value="">Sin categoría</option>

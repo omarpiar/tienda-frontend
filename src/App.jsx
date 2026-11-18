@@ -6,11 +6,11 @@ import VentaPage from './pages/VentaPage';
 import InventarioPage from './pages/InventarioPage';
 import PendientesPage from './pages/PendientesPage';
 import ReportesPage from './pages/ReportesPage';
+import HistorialVentasPage from './pages/HistorialVentasPage';
 import UsuariosPage from './pages/UsuariosPage';
-import CategoriasPage from './pages/CategoriasPage';
 import SelectorPerfil from './components/SelectorPerfil';
 import {
-  IconoEtiqueta,
+  IconoHistorial,
   IconoInventario,
   IconoPendientes,
   IconoReportes,
@@ -22,8 +22,8 @@ import {
 const VISTAS = [
   { id: 'venta', texto: 'Vender', solo: null, Icono: IconoVender },
   { id: 'inventario', texto: 'Inventario', solo: null, Icono: IconoInventario },
-  { id: 'categorias', texto: 'Categorías', solo: 'Administrador', Icono: IconoEtiqueta },
   { id: 'reportes', texto: 'Reportes', solo: 'Administrador', Icono: IconoReportes },
+  { id: 'historial', texto: 'Historial', solo: 'Administrador', Icono: IconoHistorial },
   { id: 'usuarios', texto: 'Usuarios', solo: 'Administrador', Icono: IconoUsuarios },
   { id: 'pendientes', texto: 'Pendientes', solo: null, Icono: IconoPendientes },
 ];
@@ -93,8 +93,8 @@ export default function App() {
       <main className="contenido">
         {vista === 'venta' && <VentaPage />}
         {vista === 'inventario' && <InventarioPage />}
-        {vista === 'categorias' && rol === 'Administrador' && <CategoriasPage />}
         {vista === 'reportes' && rol === 'Administrador' && <ReportesPage />}
+        {vista === 'historial' && rol === 'Administrador' && <HistorialVentasPage />}
         {vista === 'usuarios' && rol === 'Administrador' && <UsuariosPage />}
         {vista === 'pendientes' && <PendientesPage />}
       </main>

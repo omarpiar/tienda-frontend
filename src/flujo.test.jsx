@@ -1,6 +1,6 @@
 // Prueba de punta a punta: la app real de React contra la API de demostración (mock-api) en memoria.
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthProvider } from './auth/AuthContext';
 import { SyncProvider } from './offline/SyncContext';
@@ -139,6 +139,29 @@ describe('flujo completo', () => {
     await screen.findByText('Pedro Ruiz');
   });
 
+  it('administrador: consulta el historial de ventas y un reporte por rango personalizado', async () => {
+    localStorage.clear();
+    montar();
+    const u = await entrar('admin', '1234');
+    await screen.findByText('Nueva venta');
+    await cambiarPerfil(u, 'Administrador');
+    await screen.findByRole('button', { name: 'Reportes' });
+
+    await u.click(screen.getByRole('button', { name: 'Historial' }));
+    await screen.findByText('Historial de ventas');
+    await u.click(await screen.findByRole('button', { name: /V-000001/ }));
+    await screen.findByText(/Refresco 600ml/);
+
+    await u.click(screen.getByRole('button', { name: 'Reportes' }));
+    await screen.findByText('Ticket promedio');
+    await u.click(screen.getByRole('button', { name: 'Personalizado' }));
+    const anio = new Date().getFullYear();
+    const fecha = (mes, dia) => `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    fireEvent.change(screen.getByLabelText('Fecha inicial'), { target: { value: fecha(1, 1) } });
+    fireEvent.change(screen.getByLabelText('Fecha final'), { target: { value: fecha(12, 31) } });
+    await waitFor(() => expect(screen.getByText('Transacciones').nextSibling.textContent).toBe('2'));
+  });
+
   it('HU-01 sin conexión: después de entrar una vez con internet, el PIN se valida en el dispositivo', async () => {
     localStorage.clear();
     montar();
@@ -185,6 +208,7 @@ describe('flujo completo', () => {
     const u = await entrar('admin', '1234');
     await screen.findByText('Nueva venta');
     await cambiarPerfil(u, 'Administrador');
+    await u.click(screen.getByRole('button', { name: 'Inventario' }));
     await screen.findByRole('button', { name: 'Categorías' });
 
     await u.click(screen.getByRole('button', { name: 'Categorías' }));
@@ -195,7 +219,7 @@ describe('flujo completo', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await screen.findByText('Pruebas E2E');
 
-    await u.click(screen.getByRole('button', { name: 'Inventario' }));
+    await u.click(screen.getByRole('button', { name: 'Productos' }));
     await u.click(await screen.findByRole('button', { name: '+ Agregar producto' }));
     dialogo = await screen.findByRole('dialog');
     await u.type(within(dialogo).getByLabelText(/nombre/i), 'Producto E2E');

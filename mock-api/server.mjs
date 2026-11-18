@@ -256,6 +256,21 @@ ruta('DELETE', '/api/productos/(\\d+)', (req, { m }) => {
   return [204, null];
 });
 
+ruta('GET', '/api/ventas', (req, { q }) => {
+  soloAdmin(autenticar(req));
+  const d = q.get('desdeUtc') ? new Date(q.get('desdeUtc')) : null;
+  const h = q.get('hastaUtc') ? new Date(q.get('hastaUtc')) : null;
+  if ((d && isNaN(d)) || (h && isNaN(h)) || (d && h && h <= d))
+    throw validacion({ hastaUtc: ['El rango de fechas no es válido.'] });
+  let r = ventas.filter((v) => {
+    const f = new Date(v.fechaVentaUtc);
+    return (!d || f >= d) && (!h || f < h);
+  });
+  r = r.sort((a, b) => b.fechaVentaUtc.localeCompare(a.fechaVentaUtc) || b.id - a.id);
+  const pag = pagina(q, 'pagina', 1, 1e9), tam = pagina(q, 'tamanoPagina', 50, 200);
+  return [200, { items: r.slice((pag - 1) * tam, pag * tam).map(ventaDto), total: r.length, pagina: pag, tamanoPagina: tam }];
+});
+
 ruta('POST', '/api/ventas', (req, { cuerpo: b }) => {
   const c = autenticar(req);
   const err = {};
