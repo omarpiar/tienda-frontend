@@ -2,18 +2,21 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { dinero } from '../format';
-import { rangoDePeriodo } from '../lib/rangos';
+import { rangoDeFechas, rangoDePeriodo } from '../lib/rangos';
 
 const PERIODOS = [
   { valor: 'hoy', texto: 'Hoy' },
   { valor: 'semana', texto: 'Semana' },
   { valor: 'mes', texto: 'Mes' },
+  { valor: 'personalizado', texto: 'Personalizado' },
 ];
 
 /** HU-08: ventas totales, ticket promedio y productos más vendidos. */
 export default function ReportesPage() {
   const { sesion } = useAuth();
   const [periodo, setPeriodo] = useState('hoy');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
   const [reporte, setReporte] = useState(null);
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(true);
@@ -22,7 +25,14 @@ export default function ReportesPage() {
     let cancelado = false;
     setCargando(true);
     setError('');
-    const { desdeUtc, hastaUtc } = rangoDePeriodo(periodo);
+    const rango = periodo === 'personalizado' ? rangoDeFechas(desde, hasta) : rangoDePeriodo(periodo);
+    if (rango.error) {
+      setReporte(null);
+      setError(rango.error);
+      setCargando(false);
+      return;
+    }
+    const { desdeUtc, hastaUtc } = rango;
 
     apiFetch(`/api/reportes/ventas?${new URLSearchParams({ desdeUtc, hastaUtc })}`, { token: sesion.token })
       .then((r) => !cancelado && setReporte(r))
@@ -36,7 +46,7 @@ export default function ReportesPage() {
     return () => {
       cancelado = true;
     };
-  }, [periodo, sesion.token]);
+  }, [periodo, desde, hasta, sesion.token]);
 
   const maximo = Math.max(1, ...(reporte?.productosMasVendidos.map((p) => p.cantidadVendida) ?? [1]));
 
@@ -51,6 +61,19 @@ export default function ReportesPage() {
           </button>
         ))}
       </div>
+
+      {periodo === 'personalizado' && (
+        <div className="rango-fechas">
+          <label>
+            <span>Desde</span>
+            <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} aria-label="Fecha inicial" />
+          </label>
+          <label>
+            <span>Hasta</span>
+            <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} aria-label="Fecha final" />
+          </label>
+        </div>
+      )}
 
       {error && <p className="aviso aviso--error" role="alert">{error}</p>}
       {cargando && !reporte && <p className="tenue">Calculando…</p>}

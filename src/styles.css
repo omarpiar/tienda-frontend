@@ -1429,6 +1429,56 @@ p {
   white-space: nowrap;
 }
 
+.rango-fechas {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin-top: 0.8rem;
+}
+
+.rango-fechas label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--tenue);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.rango-fechas input {
+  min-width: 150px;
+}
+
+.venta-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+}
+
+.venta-fila__total {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.venta-detalle {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0 0;
+  border-top: 1px dashed var(--linea);
+  list-style: none;
+}
+
+.venta-detalle li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+
 /* ---------- adaptaciones ---------- */
 @media (min-width: 640px) {
   .fila {
