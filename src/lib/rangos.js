@@ -19,3 +19,20 @@ export function rangoDePeriodo(periodo, ahora = new Date()) {
   }
   return { desdeUtc: desde.toISOString(), hastaUtc: hasta.toISOString() };
 }
+
+export function rangoDeFechas(desde, hasta) {
+  if (!desde || !hasta) return { error: 'Elige las dos fechas del periodo.' };
+
+  const [aa, ma, da] = desde.split('-').map(Number);
+  const [ah, mh, dh] = hasta.split('-').map(Number);
+  if (!aa || !ma || !da || !ah || !mh || !dh) return { error: 'Elige las dos fechas del periodo.' };
+
+  const inicio = new Date(aa, ma - 1, da);
+  const fin = new Date(ah, mh - 1, dh + 1);
+  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime()) || fin <= inicio)
+    return { error: 'La fecha final debe ser mayor que la inicial.' };
+  if ((fin - inicio) / 86400000 > 366)
+    return { error: 'El rango no puede pasar de 366 días.' };
+
+  return { desdeUtc: inicio.toISOString(), hastaUtc: fin.toISOString() };
+}
