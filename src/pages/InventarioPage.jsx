@@ -7,6 +7,7 @@ import { dinero, hora } from '../format';
 import StockMedidor from '../components/StockMedidor';
 import ProductoDetalle from '../components/ProductoDetalle';
 import ProductoForm from '../components/ProductoForm';
+import CategoriasPage from './CategoriasPage';
 
 const TAMANO = 50;
 const FILTROS = [
@@ -29,6 +30,7 @@ export default function InventarioPage() {
   const { refrescarCatalogo } = useSync();
   const esAdmin = sesion.usuario.rol === 'Administrador';
 
+  const [tab, setTab] = useState('productos');
   const [buscar, setBuscar] = useState('');
   const [estado, setEstado] = useState('todos');
   const [pagina, setPagina] = useState(1);
@@ -113,8 +115,21 @@ export default function InventarioPage() {
 
   return (
     <>
-      <div className="titulo-fila">
-        <h2 className="titulo">Inventario</h2>
+      <div className="segmentos" role="group" aria-label="Sección de inventario">
+        <button className={`segmentos__boton ${tab === 'productos' ? 'segmentos__boton--activo' : ''}`} aria-pressed={tab === 'productos'} onClick={() => setTab('productos')}>
+          Productos
+        </button>
+        {esAdmin && (
+          <button className={`segmentos__boton ${tab === 'categorias' ? 'segmentos__boton--activo' : ''}`} aria-pressed={tab === 'categorias'} onClick={() => setTab('categorias')}>
+            Categorías
+          </button>
+        )}
+      </div>
+
+      {tab === 'productos' && (
+        <>
+          <div className="titulo-fila">
+            <h2 className="titulo">Inventario</h2>
         {esAdmin && sesion.token && (
           <button className="boton boton--primario boton--auto" onClick={() => setFormulario({ producto: null })}>+ Agregar producto</button>
         )}
@@ -208,6 +223,10 @@ export default function InventarioPage() {
       {formulario && (
         <ProductoForm producto={formulario.producto} token={sesion.token} onGuardado={alGuardar} onCerrar={() => setFormulario(null)} />
       )}
+        </>
+      )}
+
+      {tab === 'categorias' && esAdmin && <CategoriasPage />}
     </>
   );
 }

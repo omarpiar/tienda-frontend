@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rangoDePeriodo } from './rangos';
+import { rangoDeFechas, rangoDePeriodo } from './rangos';
 import { estadoStock } from './stock';
 import { nuevoUuid } from './uuid';
 import { plano } from './texto';
@@ -24,6 +24,20 @@ describe('rangoDePeriodo', () => {
     const { desdeUtc, hastaUtc } = rangoDePeriodo('mes', miercoles);
     expect(new Date(desdeUtc).getDate()).toBe(1);
     expect(new Date(hastaUtc).getMonth()).toBe(10);
+  });
+});
+
+describe('rangoDeFechas', () => {
+  it('cubre el día final completo', () => {
+    const { desdeUtc, hastaUtc } = rangoDeFechas('2026-11-04', '2026-11-18');
+    expect(new Date(desdeUtc).getDate()).toBe(4);
+    expect(new Date(hastaUtc).getDate()).toBe(19);
+  });
+
+  it('valida fechas incompletas, invertidas y rangos demasiado largos', () => {
+    expect(rangoDeFechas('', '2026-11-18').error).toBe('Elige las dos fechas del periodo.');
+    expect(rangoDeFechas('2026-11-18', '2026-11-04').error).toBe('La fecha final debe ser mayor que la inicial.');
+    expect(rangoDeFechas('2025-01-01', '2026-12-31').error).toBe('El rango no puede pasar de 366 días.');
   });
 });
 
