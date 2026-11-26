@@ -119,6 +119,23 @@ describe('flujo completo', () => {
     await screen.findByText('En línea');
   });
 
+  it('admin: stock bajo no muestra agotados y el filtro Agotados sí los muestra', async () => {
+    localStorage.clear();
+    montar();
+    const u = await entrar('admin', '1234');
+    await screen.findByText('Nueva venta');
+    await cambiarPerfil(u, 'Administrador');
+    await u.click(screen.getByRole('button', { name: 'Inventario' }));
+    await screen.findByRole('heading', { name: 'Inventario' });
+
+    await u.click(screen.getByRole('button', { name: 'Stock bajo' }));
+    await screen.findByText('Aceite Vegetal 900ml');
+    expect(screen.queryByText('Frijol negro 1kg')).toBeNull();
+
+    await u.click(screen.getByRole('button', { name: 'Agotados' }));
+    await screen.findByText('Frijol negro 1kg');
+  });
+
   it('login incorrecto muestra el mensaje y un cajero no ve Reportes ni Usuarios', async () => {
     localStorage.clear();
     montar();
