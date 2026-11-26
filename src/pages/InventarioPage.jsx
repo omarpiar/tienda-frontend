@@ -7,6 +7,7 @@ import { dinero, hora } from '../format';
 import StockMedidor from '../components/StockMedidor';
 import ProductoDetalle from '../components/ProductoDetalle';
 import ProductoForm from '../components/ProductoForm';
+import Modal from '../components/Modal';
 import CategoriasPage from './CategoriasPage';
 
 const TAMANO = 50;
@@ -41,6 +42,7 @@ export default function InventarioPage() {
   const [guardadoEn, setGuardadoEn] = useState(null); // con valor = se muestran datos guardados
   const [seleccionado, setSeleccionado] = useState(null);
   const [formulario, setFormulario] = useState(null); // { producto } | null
+  const [aviso, setAviso] = useState(null);
 
   const texto = useRetardo(buscar.trim(), 300);
 
@@ -97,11 +99,13 @@ export default function InventarioPage() {
   // Los agotados tienen su propio filtro, incluso si la caché viene de una versión anterior del API.
   const visibles = datos && estado === 'stockBajo' ? datos.items.filter((p) => p.stock > 0) : (datos?.items ?? []);
 
-  function alGuardar() {
+  function alGuardar(guardado) {
+    const edito = Boolean(formulario.producto);
     setFormulario(null);
     setSeleccionado(null);
     setRecarga((n) => n + 1);
     refrescarCatalogo(); // la caja ve de inmediato el cambio
+    setAviso({ titulo: edito ? 'Producto actualizado' : 'Producto creado', mensaje: guardado?.nombre });
   }
 
   function alActualizar() {
@@ -109,10 +113,11 @@ export default function InventarioPage() {
     refrescarCatalogo();
   }
 
-  function alEliminar() {
+  function alEliminar(producto) {
     setSeleccionado(null);
     setRecarga((n) => n + 1);
     refrescarCatalogo();
+    setAviso({ titulo: 'Producto eliminado', mensaje: producto?.nombre });
   }
 
   return (
@@ -231,6 +236,13 @@ export default function InventarioPage() {
       )}
 
       {tab === 'categorias' && esAdmin && <CategoriasPage />}
+
+      {aviso && (
+        <Modal titulo={aviso.titulo} onCerrar={() => setAviso(null)}>
+          <p className="confirmacion" role="status"><strong>{aviso.mensaje}</strong></p>
+          <button className="boton boton--primario hoja__accion" onClick={() => setAviso(null)}>Aceptar</button>
+        </Modal>
+      )}
     </>
   );
 }

@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 const textoDe = (nombre) => screen.getByRole('button', { name: nombre }).textContent;
-const filaDe = (texto) => screen.getAllByRole('row').find((fila) => within(fila).queryByText(texto));
+const filaDe = async (texto) => (await screen.findAllByRole('row')).find((fila) => within(fila).queryByText(texto));
 const dialogoTitulo = async (titulo) => {
   await screen.findByRole('heading', { name: titulo });
   return screen.getByRole('dialog', { name: titulo });
@@ -56,6 +56,7 @@ async function abrirPerfil(u) {
 async function cambiarPerfil(u, rol) {
   await abrirPerfil(u);
   await u.click(screen.getByRole('menuitemradio', { name: new RegExp(rol, 'i') }));
+  await waitFor(() => expect(screen.queryByRole('menu', { name: /cambiar de perfil/i })).toBeNull());
 }
 
 async function cerrarSesion(u) {
@@ -282,7 +283,9 @@ describe('flujo completo', () => {
     await u.type(within(dialogo).getByLabelText(/stock inicial/i), '2');
     await u.type(within(dialogo).getByLabelText(/stock mínimo/i), '1');
     await u.click(within(dialogo).getByRole('button', { name: 'Guardar' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const avisoProducto = await dialogoTitulo('Producto creado');
+    await within(avisoProducto).findByText('Producto creado');
+    await u.click(within(avisoProducto).getByRole('button', { name: 'Aceptar' }));
     await screen.findByText('Producto E2E');
 
     await u.click(await screen.findByRole('button', { name: /Producto E2E/ }));
@@ -295,13 +298,21 @@ describe('flujo completo', () => {
     await within(dialogo).findByText('Reposición de stock');
     await within(dialogo).findByText('Creación');
 
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await u.click(within(dialogo).getByRole('button', { name: 'Editar producto' }));
+    const edicionProducto = await dialogoTitulo('Editar producto');
+    await u.click(within(edicionProducto).getByRole('button', { name: 'Cerrar' }));
+    dialogo = await screen.findByRole('dialog', { name: 'Producto E2E' });
+
     await u.click(within(dialogo).getByRole('button', { name: 'Eliminar producto' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const confirmarEliminacion = await dialogoTitulo('Eliminar producto');
+    await u.click(within(confirmarEliminacion).getByRole('button', { name: 'Eliminar' }));
+    const avisoEliminado = await dialogoTitulo('Producto eliminado');
+    await within(avisoEliminado).findByText('Producto eliminado');
+    await u.click(within(avisoEliminado).getByRole('button', { name: 'Aceptar' }));
     await waitFor(() => expect(screen.queryByText('Producto E2E')).toBeNull());
 
     await u.click(screen.getByRole('button', { name: 'Categorías' }));
-    const fila = filaDe('Pruebas E2E');
+    const fila = await filaDe('Pruebas E2E');
     expect(fila).toBeTruthy();
     await u.click(within(fila).getByRole('button', { name: 'Eliminar' }));
     const confirmar = await dialogoTitulo('Eliminar categoría');
@@ -321,7 +332,7 @@ describe('flujo completo', () => {
     await u.click(screen.getByRole('button', { name: 'Usuarios' }));
     await screen.findByRole('columnheader', { name: 'Usuario' });
 
-    const fila = filaDe('Laura Gómez');
+    const fila = await filaDe('Laura Gómez');
     expect(fila).toBeTruthy();
     await u.click(within(fila).getByRole('button', { name: 'Editar' }));
     const edicion = await dialogoTitulo('Editar usuario');
@@ -336,7 +347,7 @@ describe('flujo completo', () => {
     await within(desactivado).findByText('Usuario desactivado');
     await u.click(within(desactivado).getByRole('button', { name: 'Aceptar' }));
 
-    const inactiva = filaDe('Laura Gómez');
+    const inactiva = await filaDe('Laura Gómez');
     await u.click(within(inactiva).getByRole('button', { name: 'Reactivar' }));
     const reactivar = await dialogoTitulo('Reactivar usuario');
     await u.click(within(reactivar).getByRole('button', { name: 'Reactivar' }));
