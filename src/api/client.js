@@ -11,6 +11,24 @@ export class ApiError extends Error {
   }
 }
 
+/** navigator.onLine solo dice si hay adaptador de red: en Chrome puede seguir en true sin internet. */
+export async function comprobarConexion() {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
+
+  let temporizador;
+  const espera = new Promise((_, rechazar) => {
+    temporizador = setTimeout(() => rechazar(new Error('Sin respuesta del servidor')), 3000);
+  });
+  try {
+    const respuesta = await Promise.race([fetch(`${API_URL}/health`, { cache: 'no-store' }), espera]);
+    return respuesta.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(temporizador);
+  }
+}
+
 let alExpirarSesion = () => {};
 export function registrarAlExpirarSesion(fn) {
   alExpirarSesion = fn;

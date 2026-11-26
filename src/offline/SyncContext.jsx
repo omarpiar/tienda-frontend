@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { apiFetch } from '../api/client';
+import { apiFetch, comprobarConexion } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { descargarCatalogo, descontarLocal, leerCatalogo } from './catalogo';
 import { pendientesBorrar, pendientesGuardar, pendientesTodas } from './db';
@@ -7,6 +7,7 @@ import { cuerpoDeVenta, sincronizarPendientes } from './sincronizador';
 
 const SyncContext = createContext(null);
 const CADA_MS = 30_000;
+const CONEXION_MS = 15_000;
 
 export function SyncProvider({ children }) {
   const { sesion } = useAuth();
@@ -18,7 +19,14 @@ export function SyncProvider({ children }) {
   const [pendientes, setPendientes] = useState([]);
   const [sincronizando, setSincronizando] = useState(false);
   const [aviso, setAviso] = useState('');
+  const [resultadoSync, setResultadoSync] = useState(null);
   const ocupado = useRef(false);
+
+  const verificarConexion = useCallback(async () => {
+    const conectado = await comprobarConexion();
+    setEnLinea(conectado);
+    return conectado;
+  }, []);
 
   const cargarPendientes = useCallback(async () => {
     const todas = await pendientesTodas();
@@ -53,6 +61,7 @@ export function SyncProvider({ children }) {
 
       if (r.sincronizadas) setAviso(`${r.sincronizadas} venta${r.sincronizadas === 1 ? '' : 's'} sincronizada${r.sincronizadas === 1 ? '' : 's'}.`);
       if (r.conflictos) setAviso(`${r.conflictos} venta${r.conflictos === 1 ? '' : 's'} con conflicto de existencias. Revisa Pendientes.`);
+      if (r.sincronizadas || r.conflictos || r.errores) setResultadoSync(r);
 
       await cargarPendientes();
       if (r.sincronizadas) await refrescarCatalogo();
@@ -96,17 +105,20 @@ export function SyncProvider({ children }) {
     cargarPendientes().catch(() => {});
   }, [cargarPendientes]);
 
-  // Estado de la conexión
+  // Estado de la conexión: los eventos avisan, pero solo el API confirma que hay internet de verdad.
   useEffect(() => {
-    const arriba = () => setEnLinea(true);
+    verificarConexion();
+    const arriba = () => verificarConexion();
     const abajo = () => setEnLinea(false);
     window.addEventListener('online', arriba);
     window.addEventListener('offline', abajo);
+    const t = setInterval(verificarConexion, CONEXION_MS);
     return () => {
       window.removeEventListener('online', arriba);
       window.removeEventListener('offline', abajo);
+      clearInterval(t);
     };
-  }, []);
+  }, [verificarConexion]);
 
   // Al entrar con token y cada vez que vuelve la conexión: primero se envían las ventas, luego se actualiza el catálogo.
   useEffect(() => {
@@ -128,10 +140,11 @@ export function SyncProvider({ children }) {
 
   const valor = useMemo(
     () => ({
-      enLinea, catalogo, pendientes, sincronizando, aviso, limpiarAviso: () => setAviso(''),
+      enLinea, catalogo, pendientes, sincronizando, aviso, resultadoSync, verificarConexion,
+      limpiarAviso: () => setAviso(''), limpiarResultadoSync: () => setResultadoSync(null),
       sincronizar, refrescarCatalogo, registrarPendiente, descartar, reintentar,
     }),
-    [enLinea, catalogo, pendientes, sincronizando, aviso, sincronizar, refrescarCatalogo, registrarPendiente, descartar, reintentar],
+    [enLinea, catalogo, pendientes, sincronizando, aviso, resultadoSync, verificarConexion, sincronizar, refrescarCatalogo, registrarPendiente, descartar, reintentar],
   );
   return <SyncContext.Provider value={valor}>{children}</SyncContext.Provider>;
 }
