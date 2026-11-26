@@ -60,7 +60,7 @@ Las pruebas del frontend incluyen un recorrido completo de la app real: login, v
 ## Para integrar con su repo
 - `db/schema.sql` es para correr rápido en local. Si ustedes usan migraciones de EF, **no lo ejecuten en la misma base**: generen las migraciones con `dotnet ef migrations add ...` a partir de las configuraciones en `Infrastructure/Data/Configurations` (producen el mismo esquema).
 - Si ya tienen entidades `Producto`, `Usuario` o `Rol`, usen las suyas y quiten las mías (los nombres de campos usados están en `Domain/Entities`).
-- Decisiones del documento que quedaron implementadas: D1 el precio lo pone el servidor; D2 el administrador entra como Administrador o Cajero, el cajero solo como Cajero; D3 el margen se calcula sobre el precio de venta; D5 "stock bajo" incluye los agotados; D6 los reportes usan el día local del dispositivo convertido a UTC; D7 los conflictos de stock al sincronizar los resuelve un administrador.
+- Decisiones del documento que quedaron implementadas: D1 el precio lo pone el servidor; D2 el administrador entra como Administrador o Cajero, el cajero solo como Cajero; D3 el margen se calcula sobre el precio de venta; D5 "stock bajo" excluye los agotados, que tienen su propio filtro; D6 los reportes usan el día local del dispositivo convertido a UTC; D7 los conflictos de stock al sincronizar los resuelve un administrador.
 - Las ventas pendientes se envían con el usuario que las hizo (si otra persona inicia sesión en la misma tablet, esperan a que esa persona entre).
 
 ## Pendiente (siguiente etapa del documento)

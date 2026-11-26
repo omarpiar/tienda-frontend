@@ -94,6 +94,8 @@ export default function InventarioPage() {
   }, [texto, estado, pagina, recarga, sesion.token]);
 
   const totalPaginas = datos ? Math.max(1, Math.ceil(datos.total / datos.tamanoPagina)) : 1;
+  // Los agotados tienen su propio filtro, incluso si la caché viene de una versión anterior del API.
+  const visibles = datos && estado === 'stockBajo' ? datos.items.filter((p) => p.stock > 0) : (datos?.items ?? []);
 
   function alGuardar() {
     setFormulario(null);
@@ -130,10 +132,12 @@ export default function InventarioPage() {
         <>
           <div className="titulo-fila">
             <h2 className="titulo">Inventario</h2>
-        {esAdmin && sesion.token && (
-          <button className="boton boton--primario boton--auto" onClick={() => setFormulario({ producto: null })}>+ Agregar producto</button>
-        )}
-      </div>
+            {esAdmin && sesion.token && (
+              <button className="boton boton--primario boton--auto inventario__agregar" onClick={() => setFormulario({ producto: null })}>
+                + Agregar producto
+              </button>
+            )}
+          </div>
 
       {sesion.modoLocal && !sesion.token && (
         <p className="aviso">Entraste sin conexión. Verás los datos guardados en este dispositivo.</p>
@@ -165,15 +169,15 @@ export default function InventarioPage() {
 
       {error && <p className="aviso aviso--error" role="alert">{error}</p>}
 
-      {datos && datos.items.length === 0 && !cargando && (
+      {datos && visibles.length === 0 && !cargando && (
         <p className="vacio">
           {texto || estado !== 'todos' ? 'No hay productos con ese filtro. Prueba con otra búsqueda.' : 'Aún no hay productos registrados.'}
         </p>
       )}
 
-      {datos && datos.items.length > 0 && (
+      {datos && visibles.length > 0 && (
         <ul className={`lista ${cargando ? 'lista--cargando' : ''}`}>
-          {datos.items.map((p) => (
+          {visibles.map((p) => (
             <li key={p.id}>
               <button className="fila" onClick={() => setSeleccionado(p)}>
                 <span className="fila__nombre">

@@ -176,7 +176,7 @@ ruta('GET', '/api/productos', (req, { q }) => {
   if (!['todos', 'stockBajo', 'agotados'].includes(estado)) throw validacion({ estado: ['Usa todos, stockBajo o agotados.'] });
   const buscar = (q.get('buscar') ?? '').trim().toLowerCase();
   let r = productos.filter((p) => !p.eliminado && (!buscar || p.nombre.toLowerCase().includes(buscar) || p.sku.toLowerCase().includes(buscar)));
-  if (estado === 'stockBajo') r = r.filter((p) => p.stock <= p.stockMinimo);
+  if (estado === 'stockBajo') r = r.filter((p) => p.stock > 0 && p.stock <= p.stockMinimo);
   if (estado === 'agotados') r = r.filter((p) => p.stock === 0);
   r.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   const pag = pagina(q, 'pagina', 1, 1e9), tam = pagina(q, 'tamanoPagina', 50, 200);
