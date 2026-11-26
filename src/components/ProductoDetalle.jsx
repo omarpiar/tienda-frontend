@@ -12,6 +12,9 @@ export default function ProductoDetalle({ producto, token, esAdmin, onEditar, on
   const [historial, setHistorial] = useState(null);
   const [verHistorial, setVerHistorial] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [confirmando, setConfirmando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState('');
 
   useEffect(() => {
     let cancelado = false;
@@ -51,14 +54,22 @@ export default function ProductoDetalle({ producto, token, esAdmin, onEditar, on
     }
   }
 
-  async function eliminar() {
-    if (!window.confirm(`¿Eliminar ${p.nombre}? Dejará de aparecer en el inventario y en la caja, pero sus ventas se conservan.`)) return;
-    setError('');
+  function eliminar() {
+    setErrorEliminar('');
+    setConfirmando(true);
+  }
+
+  async function confirmarEliminacion() {
+    setErrorEliminar('');
+    setEliminando(true);
     try {
       await apiFetch(`/api/productos/${producto.id}`, { metodo: 'DELETE', token });
-      onEliminado?.();
+      setConfirmando(false);
+      onEliminado?.(p);
     } catch (err) {
-      setError(err.message);
+      setErrorEliminar(err.message);
+    } finally {
+      setEliminando(false);
     }
   }
 
@@ -76,6 +87,21 @@ export default function ProductoDetalle({ producto, token, esAdmin, onEditar, on
       setError(err.message);
       setHistorial([]);
     }
+  }
+
+  if (confirmando) {
+    return (
+      <Modal titulo="Eliminar producto" subtitulo="Esta acción no se puede deshacer." onCerrar={() => setConfirmando(false)}>
+        <p>¿Eliminar <strong>{p.nombre}</strong>? Dejará de aparecer en el inventario y en la caja, pero sus ventas se conservan.</p>
+        {errorEliminar && <p className="aviso aviso--error" role="alert">{errorEliminar}</p>}
+        <div className="acciones hoja__accion">
+          <button className="boton boton--auto" onClick={() => setConfirmando(false)}>Cancelar</button>
+          <button className="boton boton--auto boton--peligro" onClick={confirmarEliminacion} disabled={eliminando}>
+            {eliminando ? 'Eliminando…' : 'Eliminar'}
+          </button>
+        </div>
+      </Modal>
+    );
   }
 
   return (
