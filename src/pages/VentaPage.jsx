@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useSync } from '../offline/SyncContext';
+import Modal from '../components/Modal';
 import { dinero } from '../format';
 import { nuevoUuid } from '../lib/uuid';
 import { plano } from '../lib/texto';
@@ -83,6 +84,7 @@ export default function VentaPage() {
     setCobrando(true);
 
     const detalles = carrito.map((l) => ({ productoId: l.producto.id, cantidad: l.cantidad }));
+    const items = carrito.map((l) => ({ nombre: l.producto.nombre, cantidad: l.cantidad, precio: l.producto.precioVenta }));
     const venta = {
       idLocal: nuevoUuid(),
       fechaVentaUtc: new Date().toISOString(),
@@ -95,7 +97,7 @@ export default function VentaPage() {
       if (sesion.token && enLinea) {
         try {
           const guardada = await apiFetch('/api/ventas', { metodo: 'POST', cuerpo: venta, token: sesion.token });
-          setResultado({ tipo: 'ok', folio: guardada.folio, total: guardada.total, cambio: guardada.cambio });
+          setResultado({ tipo: 'ok', folio: guardada.folio, total: guardada.total, cambio: guardada.cambio, metodo, items });
           limpiar();
           refrescarCatalogo();
           return;
@@ -124,10 +126,10 @@ export default function VentaPage() {
           folioProvisional,
           total,
           cambio,
-          items: carrito.map((l) => ({ nombre: l.producto.nombre, cantidad: l.cantidad, precio: l.producto.precioVenta })),
+          items,
         },
       });
-      setResultado({ tipo: 'offline', folio: folioProvisional, total, cambio });
+      setResultado({ tipo: 'offline', folio: folioProvisional, total, cambio, metodo, items });
       limpiar();
     } finally {
       setCobrando(false);
@@ -160,13 +162,29 @@ export default function VentaPage() {
       {!enLinea && <p className="aviso">Sin conexión: las ventas se guardan en este dispositivo y se envían solas al volver el internet.</p>}
 
       {resultado && (
-        <div className={`confirmacion ${resultado.tipo === 'ok' ? '' : 'confirmacion--local'}`} role="status">
-          <strong>
-            {resultado.tipo === 'ok' ? `Venta registrada · ${resultado.folio}` : `Venta guardada sin conexión · ${resultado.folio}`}
-          </strong>
-          <span>Total {dinero(resultado.total)}{resultado.cambio != null && resultado.cambio > 0 ? ` · Cambio ${dinero(resultado.cambio)}` : ''}</span>
-          {resultado.tipo === 'offline' && <span className="tenue">Se sincronizará automáticamente. Ese folio es provisional.</span>}
-        </div>
+        <Modal
+          titulo={resultado.tipo === 'ok' ? 'Venta registrada' : 'Cobro guardado en el dispositivo'}
+          subtitulo={resultado.tipo === 'ok' ? 'El cobro quedó registrado en el sistema.' : 'Se enviará sola al volver el internet.'}
+          onCerrar={() => setResultado(null)}
+        >
+          <div className={`confirmacion ${resultado.tipo === 'ok' ? '' : 'confirmacion--local'}`} role="status">
+            <strong>
+              {resultado.tipo === 'ok' ? `Venta registrada · ${resultado.folio}` : `Venta guardada sin conexión · ${resultado.folio}`}
+            </strong>
+            <span>Total {dinero(resultado.total)}{resultado.cambio != null && resultado.cambio > 0 ? ` · Cambio ${dinero(resultado.cambio)}` : ''}</span>
+            {resultado.tipo === 'offline' && <span className="tenue">Se sincronizará automáticamente. Ese folio es provisional.</span>}
+          </div>
+          <dl className="datos">
+            <div><dt>Método de pago</dt><dd>{resultado.metodo}</dd></div>
+            {resultado.items.map((i) => (
+              <div key={i.nombre}>
+                <dt>{i.cantidad} × {i.nombre}</dt>
+                <dd>{dinero(i.precio * i.cantidad)}</dd>
+              </div>
+            ))}
+          </dl>
+          <button className="boton boton--primario hoja__accion" onClick={() => setResultado(null)}>Aceptar</button>
+        </Modal>
       )}
 
       <div className="venta">

@@ -9,6 +9,7 @@ import ReportesPage from './pages/ReportesPage';
 import HistorialVentasPage from './pages/HistorialVentasPage';
 import UsuariosPage from './pages/UsuariosPage';
 import SelectorPerfil from './components/SelectorPerfil';
+import Modal from './components/Modal';
 import {
   IconoHistorial,
   IconoInventario,
@@ -30,7 +31,7 @@ const VISTAS = [
 
 export default function App() {
   const { sesion } = useAuth();
-  const { enLinea, pendientes, aviso, limpiarAviso } = useSync();
+  const { enLinea, pendientes, aviso, resultadoSync, limpiarAviso, limpiarResultadoSync } = useSync();
   const [vista, setVista] = useState('venta');
 
   // Al cambiar de persona o de rol, se vuelve a la pantalla de venta
@@ -89,6 +90,22 @@ export default function App() {
       </nav>
 
       {aviso && <p className="aviso aviso--flotante" role="status">{aviso}</p>}
+
+      {resultadoSync && (
+        <Modal
+          titulo="Sincronización de ventas"
+          subtitulo="Resultado del envío con internet."
+          onCerrar={limpiarResultadoSync}
+        >
+          <dl className="datos">
+            <div><dt>Ventas enviadas</dt><dd>{resultadoSync.sincronizadas}</dd></div>
+            <div><dt>Conflictos de existencias</dt><dd>{resultadoSync.conflictos}</dd></div>
+            <div><dt>Otros errores</dt><dd>{resultadoSync.errores}</dd></div>
+          </dl>
+          {resultadoSync.conflictos > 0 && <p className="aviso aviso--error">Revisa la sección Pendientes para resolverlos.</p>}
+          <button className="boton boton--primario hoja__accion" onClick={limpiarResultadoSync}>Aceptar</button>
+        </Modal>
+      )}
 
       <main className="contenido">
         {vista === 'venta' && <VentaPage />}
