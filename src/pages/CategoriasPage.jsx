@@ -2,12 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import CategoriaForm from '../components/CategoriaForm';
+import Modal from '../components/Modal';
 
 export default function CategoriasPage() {
   const { sesion } = useAuth();
   const [categorias, setCategorias] = useState(null);
   const [error, setError] = useState('');
   const [formulario, setFormulario] = useState(null); // { categoria }
+  const [confirmacion, setConfirmacion] = useState(null);
+  const [errorEliminar, setErrorEliminar] = useState('');
+  const [eliminando, setEliminando] = useState(false);
+  const [aviso, setAviso] = useState(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -22,14 +27,26 @@ export default function CategoriasPage() {
     cargar();
   }, [cargar]);
 
-  async function eliminar(categoria) {
-    if (!window.confirm(`¿Eliminar la categoría ${categoria.nombre}?`)) return;
-    setError('');
+  function alGuardar(guardada) {
+    const edito = Boolean(formulario.categoria);
+    setFormulario(null);
+    cargar();
+    setAviso({ titulo: edito ? 'Categoría actualizada' : 'Categoría creada', mensaje: guardada.nombre });
+  }
+
+  async function eliminar() {
+    setErrorEliminar('');
+    setEliminando(true);
     try {
-      await apiFetch(`/api/categorias/${categoria.id}`, { metodo: 'DELETE', token: sesion.token });
+      await apiFetch(`/api/categorias/${confirmacion.id}`, { metodo: 'DELETE', token: sesion.token });
+      const nombre = confirmacion.nombre;
+      setConfirmacion(null);
       await cargar();
+      setAviso({ titulo: 'Categoría eliminada', mensaje: nombre });
     } catch (e) {
-      setError(e.message);
+      setErrorEliminar(e.message);
+    } finally {
+      setEliminando(false);
     }
   }
 
@@ -48,30 +65,63 @@ export default function CategoriasPage() {
         <p className="vacio">Aún no hay categorías. Crea la primera para clasificar tus productos.</p>
       )}
 
-      <ul className="lista">
-        {(categorias ?? []).map((c) => (
-          <li key={c.id} className="tarjeta">
-            <div className="tarjeta__cabecera">
-              <span className="fila__nombre">
-                <strong>{c.nombre}</strong>
-                <span className="tenue">{c.productos} {c.productos === 1 ? 'producto' : 'productos'}</span>
-              </span>
-            </div>
-            <div className="acciones">
-              <button className="boton boton--auto" onClick={() => setFormulario({ categoria: c })}>Editar</button>
-              <button className="boton boton--auto boton--peligro" onClick={() => eliminar(c)}>Eliminar</button>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {categorias && categorias.length > 0 && (
+        <div className="tabla-contenedor">
+          <table className="tabla">
+            <thead>
+              <tr>
+                <th scope="col">Categoría</th>
+                <th scope="col">Productos</th>
+                <th scope="col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {categorias.map((c) => (
+                <tr key={c.id}>
+                  <td data-label="Categoría">
+                    <span className="tabla__nombre"><strong>{c.nombre}</strong></span>
+                  </td>
+                  <td data-label="Productos">{c.productos} {c.productos === 1 ? 'producto' : 'productos'}</td>
+                  <td data-label="Acciones">
+                    <div className="tabla__acciones">
+                      <button className="boton boton--auto" onClick={() => setFormulario({ categoria: c })}>Editar</button>
+                      <button className="boton boton--auto boton--peligro" onClick={() => { setErrorEliminar(''); setConfirmacion(c); }}>Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {formulario && (
         <CategoriaForm
           categoria={formulario.categoria}
           token={sesion.token}
-          onGuardado={() => { setFormulario(null); cargar(); }}
+          onGuardado={alGuardar}
           onCerrar={() => setFormulario(null)}
         />
+      )}
+
+      {confirmacion && (
+        <Modal titulo="Eliminar categoría" subtitulo="Esta acción no se puede deshacer." onCerrar={() => setConfirmacion(null)}>
+          <p>¿Eliminar la categoría <strong>{confirmacion.nombre}</strong>? Solo se puede si no tiene productos asignados.</p>
+          {errorEliminar && <p className="aviso aviso--error" role="alert">{errorEliminar}</p>}
+          <div className="acciones hoja__accion">
+            <button className="boton boton--auto" onClick={() => setConfirmacion(null)}>Cancelar</button>
+            <button className="boton boton--auto boton--peligro" onClick={eliminar} disabled={eliminando}>
+              {eliminando ? 'Eliminando…' : 'Eliminar'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {aviso && (
+        <Modal titulo={aviso.titulo} onCerrar={() => setAviso(null)}>
+          <p className="confirmacion" role="status"><strong>{aviso.mensaje}</strong></p>
+          <button className="boton boton--primario hoja__accion" onClick={() => setAviso(null)}>Aceptar</button>
+        </Modal>
       )}
     </>
   );
