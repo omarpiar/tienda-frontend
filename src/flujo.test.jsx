@@ -26,6 +26,11 @@ afterEach(() => {
 });
 
 const textoDe = (nombre) => screen.getByRole('button', { name: nombre }).textContent;
+const filaDe = (texto) => screen.getAllByRole('row').find((fila) => within(fila).queryByText(texto));
+const dialogoTitulo = async (titulo) => {
+  await screen.findByRole('heading', { name: titulo });
+  return screen.getByRole('dialog', { name: titulo });
+};
 
 const montar = () =>
   render(
@@ -177,7 +182,9 @@ describe('flujo completo', () => {
 
     await u.type(within(dialogo).getByLabelText(/^pin/i), '34');
     await u.click(within(dialogo).getByRole('button', { name: 'Guardar' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const aviso = await dialogoTitulo('Usuario creado');
+    await within(aviso).findByText('Usuario creado');
+    await u.click(within(aviso).getByRole('button', { name: 'Aceptar' }));
     await screen.findByText('Pedro Ruiz');
   });
 
@@ -258,7 +265,9 @@ describe('flujo completo', () => {
     let dialogo = await screen.findByRole('dialog');
     await u.type(within(dialogo).getByLabelText(/nombre/i), 'Pruebas E2E');
     await u.click(within(dialogo).getByRole('button', { name: 'Guardar' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const avisoCategoria = await dialogoTitulo('Categoría creada');
+    await within(avisoCategoria).findByText('Categoría creada');
+    await u.click(within(avisoCategoria).getByRole('button', { name: 'Aceptar' }));
     await screen.findByText('Pruebas E2E');
 
     await u.click(screen.getByRole('button', { name: 'Productos' }));
@@ -290,5 +299,49 @@ describe('flujo completo', () => {
     await u.click(within(dialogo).getByRole('button', { name: 'Eliminar producto' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(screen.queryByText('Producto E2E')).toBeNull());
+
+    await u.click(screen.getByRole('button', { name: 'Categorías' }));
+    const fila = filaDe('Pruebas E2E');
+    expect(fila).toBeTruthy();
+    await u.click(within(fila).getByRole('button', { name: 'Eliminar' }));
+    const confirmar = await dialogoTitulo('Eliminar categoría');
+    await u.click(within(confirmar).getByRole('button', { name: 'Eliminar' }));
+    const avisoEliminada = await dialogoTitulo('Categoría eliminada');
+    await within(avisoEliminada).findByText('Categoría eliminada');
+    await u.click(within(avisoEliminada).getByRole('button', { name: 'Aceptar' }));
+    await waitFor(() => expect(screen.queryByText('Pruebas E2E')).toBeNull());
+  });
+
+  it('administrador: la tabla de usuarios usa modales para editar, desactivar y reactivar', async () => {
+    localStorage.clear();
+    montar();
+    const u = await entrar('admin', '1234');
+    await screen.findByText('Nueva venta');
+    await cambiarPerfil(u, 'Administrador');
+    await u.click(screen.getByRole('button', { name: 'Usuarios' }));
+    await screen.findByRole('columnheader', { name: 'Usuario' });
+
+    const fila = filaDe('Laura Gómez');
+    expect(fila).toBeTruthy();
+    await u.click(within(fila).getByRole('button', { name: 'Editar' }));
+    const edicion = await dialogoTitulo('Editar usuario');
+    expect(within(edicion).getByRole('heading', { name: 'Editar usuario' })).toBeTruthy();
+    await u.click(within(edicion).getByRole('button', { name: 'Cerrar' }));
+
+    await u.click(within(fila).getByRole('button', { name: 'Desactivar' }));
+    const confirmar = await dialogoTitulo('Desactivar usuario');
+    await within(confirmar).findByText(/Ya no podrá iniciar sesión/);
+    await u.click(within(confirmar).getByRole('button', { name: 'Desactivar' }));
+    const desactivado = await dialogoTitulo('Usuario desactivado');
+    await within(desactivado).findByText('Usuario desactivado');
+    await u.click(within(desactivado).getByRole('button', { name: 'Aceptar' }));
+
+    const inactiva = filaDe('Laura Gómez');
+    await u.click(within(inactiva).getByRole('button', { name: 'Reactivar' }));
+    const reactivar = await dialogoTitulo('Reactivar usuario');
+    await u.click(within(reactivar).getByRole('button', { name: 'Reactivar' }));
+    const reactivado = await dialogoTitulo('Usuario reactivado');
+    await within(reactivado).findByText('Usuario reactivado');
+    await u.click(within(reactivado).getByRole('button', { name: 'Aceptar' }));
   });
 });
