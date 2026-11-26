@@ -1117,6 +1117,10 @@ p {
   gap: 0.6rem;
 }
 
+.paginacion__botones .boton {
+  min-height: 38px;
+}
+
 /* ---------- venta ---------- */
 .venta {
   display: grid;
@@ -1402,6 +1406,50 @@ p {
   min-height: 38px;
 }
 
+.tabla__total {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.venta-folio {
+  min-height: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.venta-folio::after {
+  content: '▸';
+  margin-left: 0.4rem;
+  color: var(--tenue);
+}
+
+.venta-folio[aria-expanded='true']::after {
+  content: '▾';
+}
+
+.tabla__fila--abierta td {
+  background: var(--superficie-2);
+}
+
+.tabla__detalle-celda {
+  padding: 0;
+}
+
+.tabla__detalle-contenido {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+}
+
+.tabla__detalle-titulo {
+  color: var(--tenue);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
 /* ---------- reportes ---------- */
 .kpis {
   display: grid;
@@ -1527,9 +1575,8 @@ p {
 .venta-detalle {
   display: grid;
   gap: 0.35rem;
-  margin: 0.75rem 0 0;
-  padding: 0.75rem 0 0;
-  border-top: 1px dashed var(--linea);
+  margin: 0;
+  padding: 0;
   list-style: none;
 }
 
@@ -1677,6 +1724,18 @@ p {
 
   .tabla__acciones {
     justify-content: flex-start;
+  }
+
+  .tabla td.tabla__detalle-celda::before {
+    display: none;
+  }
+
+  .tabla__detalle-celda {
+    padding: 0 1rem 0.6rem;
+  }
+
+  .tabla__detalle-contenido {
+    padding: 0;
   }
 }
 

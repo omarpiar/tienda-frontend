@@ -197,7 +197,7 @@ describe('flujo completo', () => {
     await screen.findByRole('button', { name: 'Reportes' });
 
     await u.click(screen.getByRole('button', { name: 'Historial' }));
-    await screen.findByText('Historial de ventas');
+    await screen.findByRole('columnheader', { name: 'Folio' });
     await u.click(await screen.findByRole('button', { name: /V-000001/ }));
     await screen.findByText(/Refresco 600ml/);
 
