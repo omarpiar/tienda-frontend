@@ -73,6 +73,9 @@ describe('flujo completo', () => {
     await u.type(screen.getByLabelText('Recibido'), '50');
     await u.click(screen.getByRole('button', { name: 'COBRAR' }));
     await screen.findByText(/Venta registrada · V-\d+/);
+    let dialogo = await screen.findByRole('dialog');
+    expect(within(dialogo).getByText(/Refresco 600ml/)).toBeTruthy();
+    await u.click(within(dialogo).getByRole('button', { name: 'Aceptar' }));
 
     // Se cae el internet
     const caido = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
@@ -84,14 +87,36 @@ describe('flujo completo', () => {
     await u.click(screen.getByRole('button', { name: 'Tarjeta' }));
     await u.click(screen.getByRole('button', { name: 'COBRAR' }));
     await screen.findByText(/Venta guardada sin conexión/);
+    dialogo = await screen.findByRole('dialog');
+    expect(within(dialogo).getByText(/folio es provisional/)).toBeTruthy();
+    await u.click(within(dialogo).getByRole('button', { name: 'Aceptar' }));
     expect(textoDe(/Pendientes/)).toMatch(/1$/);
 
-    // Vuelve el internet: se envía sola y la cola queda vacía
+    // Vuelve el internet: se envía sola, avisa con un modal y la cola queda vacía
     globalThis.fetch = fetchReal;
     window.dispatchEvent(new Event('online'));
     await screen.findByText(/1 venta sincronizada/, {}, { timeout: 8000 });
+    dialogo = await screen.findByRole('dialog');
+    expect(within(dialogo).getByText('Ventas enviadas').nextSibling.textContent).toBe('1');
+    await u.click(within(dialogo).getByRole('button', { name: 'Aceptar' }));
     await waitFor(() => expect(textoDe(/Pendientes/)).not.toMatch(/\d$/));
 
+  });
+
+  it('el aviso de conexión se comprueba con el API aunque el navegador diga que hay red', async () => {
+    localStorage.clear();
+    montar();
+    await entrar('laura', '4821');
+    await screen.findByText('En línea');
+
+    // Chrome conserva navigator.onLine en true cuando hay red local pero no internet.
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    window.dispatchEvent(new Event('online'));
+    await screen.findByText('Sin conexión');
+
+    globalThis.fetch = fetchReal;
+    window.dispatchEvent(new Event('online'));
+    await screen.findByText('En línea');
   });
 
   it('login incorrecto muestra el mensaje y un cajero no ve Reportes ni Usuarios', async () => {
