@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { plano } from '../lib/texto';
+import Modal from '../components/Modal';
 import UsuarioForm from '../components/UsuarioForm';
 
 const ESTADOS = [
@@ -19,6 +20,10 @@ export default function UsuariosPage() {
   const [rol, setRol] = useState('');
   const [estado, setEstado] = useState('todos');
   const [formulario, setFormulario] = useState(null); // { usuario }
+  const [confirmacion, setConfirmacion] = useState(null);
+  const [errorEstado, setErrorEstado] = useState('');
+  const [cambiando, setCambiando] = useState(false);
+  const [aviso, setAviso] = useState(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -45,17 +50,36 @@ export default function UsuariosPage() {
 
   const activos = usuarios?.filter((u) => u.activo).length ?? 0;
 
-  async function cambiarEstado(u) {
-    const desactivar = u.activo;
-    const mensaje = desactivar
-      ? `¿Desactivar a ${u.nombreCompleto}? Ya no podrá iniciar sesión, pero su historial se conserva.`
-      : `¿Reactivar a ${u.nombreCompleto}?`;
-    if (!window.confirm(mensaje)) return;
+  function alGuardar(guardado) {
+    const edito = Boolean(formulario.usuario);
+    setFormulario(null);
+    cargar();
+    setAviso({ titulo: edito ? 'Usuario actualizado' : 'Usuario creado', mensaje: guardado.nombreCompleto });
+  }
+
+  function cambiarEstado(u) {
+    if (u.activo && u.id === sesion.usuario.id) return;
+    setErrorEstado('');
+    setConfirmacion(u);
+  }
+
+  async function confirmarCambioEstado() {
+    const u = confirmacion;
+    setErrorEstado('');
+    setCambiando(true);
     try {
-      await apiFetch(`/api/usuarios/${u.id}/estado`, { metodo: 'PATCH', cuerpo: { activo: !u.activo }, token: sesion.token });
+      await apiFetch(`/api/usuarios/${u.id}/estado`, {
+        metodo: 'PATCH',
+        cuerpo: { activo: !u.activo },
+        token: sesion.token,
+      });
+      setConfirmacion(null);
       await cargar();
+      setAviso({ titulo: u.activo ? 'Usuario desactivado' : 'Usuario reactivado', mensaje: u.nombreCompleto });
     } catch (e) {
-      setError(e.message);
+      setErrorEstado(e.message);
+    } finally {
+      setCambiando(false);
     }
   }
 
@@ -87,34 +111,88 @@ export default function UsuariosPage() {
 
       {usuarios && visibles.length === 0 && <p className="vacio">No hay usuarios con ese filtro.</p>}
 
-      <ul className="lista">
-        {visibles.map((u) => (
-          <li key={u.id} className={`tarjeta ${u.activo ? '' : 'tarjeta--inactiva'}`}>
-            <div className="tarjeta__cabecera">
-              <span className="fila__nombre">
-                <strong>{u.nombreCompleto}</strong>
-                <span className="tenue">{u.nombreUsuario}</span>
-              </span>
-              <span className="etiqueta etiqueta--rol">{u.rol}</span>
-              {!u.activo && <span className="etiqueta etiqueta--agotado">Inactivo</span>}
-            </div>
-            <div className="acciones">
-              <button className="boton boton--auto" onClick={() => setFormulario({ usuario: u })}>Editar</button>
-              <button className="boton boton--auto" onClick={() => cambiarEstado(u)} disabled={u.id === sesion.usuario.id && u.activo} title={u.id === sesion.usuario.id ? 'No puedes desactivar tu propia cuenta' : undefined}>
-                {u.activo ? 'Desactivar' : 'Reactivar'}
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {usuarios && visibles.length > 0 && (
+        <div className="tabla-contenedor">
+          <table className="tabla">
+            <thead>
+              <tr>
+                <th scope="col">Usuario</th>
+                <th scope="col">Rol</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.map((u) => (
+                <tr key={u.id} className={u.activo ? '' : 'tabla__fila--inactiva'}>
+                  <td data-label="Usuario">
+                    <span className="tabla__nombre">
+                      <strong>{u.nombreCompleto}</strong>
+                      <span className="tenue">{u.nombreUsuario}</span>
+                    </span>
+                  </td>
+                  <td data-label="Rol"><span className="etiqueta etiqueta--rol">{u.rol}</span></td>
+                  <td data-label="Estado">
+                    {u.activo ? <span className="etiqueta">Activo</span> : <span className="etiqueta etiqueta--agotado">Inactivo</span>}
+                  </td>
+                  <td data-label="Acciones">
+                    <div className="tabla__acciones">
+                      <button className="boton boton--auto" onClick={() => setFormulario({ usuario: u })}>Editar</button>
+                      <button
+                        className={`boton boton--auto ${u.activo ? 'boton--peligro' : ''}`}
+                        onClick={() => cambiarEstado(u)}
+                        disabled={u.id === sesion.usuario.id && u.activo}
+                        title={u.id === sesion.usuario.id ? 'No puedes desactivar tu propia cuenta' : undefined}
+                      >
+                        {u.activo ? 'Desactivar' : 'Reactivar'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {formulario && (
         <UsuarioForm
           usuario={formulario.usuario}
           token={sesion.token}
-          onGuardado={() => { setFormulario(null); cargar(); }}
+          onGuardado={alGuardar}
           onCerrar={() => setFormulario(null)}
         />
+      )}
+
+      {confirmacion && (
+        <Modal
+          titulo={confirmacion.activo ? 'Desactivar usuario' : 'Reactivar usuario'}
+          subtitulo="El historial del usuario se conserva."
+          onCerrar={() => setConfirmacion(null)}
+        >
+          <p>
+            ¿{confirmacion.activo ? 'Desactivar a' : 'Reactivar a'} <strong>{confirmacion.nombreCompleto}</strong>?
+            {' '}{confirmacion.activo ? 'Ya no podrá iniciar sesión.' : 'Podrá volver a entrar con su usuario y PIN.'}
+          </p>
+          {errorEstado && <p className="aviso aviso--error" role="alert">{errorEstado}</p>}
+          <div className="acciones hoja__accion">
+            <button className="boton boton--auto" onClick={() => setConfirmacion(null)}>Cancelar</button>
+            <button
+              className={`boton boton--auto ${confirmacion.activo ? 'boton--peligro' : 'boton--primario'}`}
+              onClick={confirmarCambioEstado}
+              disabled={cambiando}
+            >
+              {cambiando ? 'Guardando…' : confirmacion.activo ? 'Desactivar' : 'Reactivar'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {aviso && (
+        <Modal titulo={aviso.titulo} onCerrar={() => setAviso(null)}>
+          <p className="confirmacion" role="status"><strong>{aviso.mensaje}</strong></p>
+          <button className="boton boton--primario hoja__accion" onClick={() => setAviso(null)}>Aceptar</button>
+        </Modal>
       )}
     </>
   );

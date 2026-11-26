@@ -1346,6 +1346,62 @@ p {
   margin-top: 0.75rem;
 }
 
+/* ---------- tablas de categorias y usuarios ---------- */
+.tabla-contenedor {
+  overflow-x: auto;
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  box-shadow: var(--sombra-suave);
+}
+
+.tabla {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+}
+
+.tabla th,
+.tabla td {
+  padding: 0.8rem 1rem;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--linea);
+}
+
+.tabla thead th {
+  color: var(--tenue);
+  background: var(--superficie-2);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.tabla tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tabla tbody tr.tabla__fila--inactiva {
+  opacity: 0.66;
+}
+
+.tabla__nombre {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.tabla__acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tabla__acciones .boton {
+  min-height: 38px;
+}
+
 /* ---------- reportes ---------- */
 .kpis {
   display: grid;
@@ -1571,6 +1627,56 @@ p {
   .login__panel {
     width: 100%;
     margin: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .tabla {
+    min-width: 0;
+  }
+
+  .tabla thead {
+    display: none;
+  }
+
+  .tabla,
+  .tabla tbody,
+  .tabla tr,
+  .tabla td {
+    display: block;
+    width: 100%;
+  }
+
+  .tabla tbody tr {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--linea);
+  }
+
+  .tabla tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .tabla td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.3rem 1rem;
+    border: 0;
+  }
+
+  .tabla td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--tenue);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .tabla__acciones {
+    justify-content: flex-start;
   }
 }
 
