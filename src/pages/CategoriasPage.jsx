@@ -4,6 +4,8 @@ import { useAuth } from '../auth/AuthContext';
 import CategoriaForm from '../components/CategoriaForm';
 import Modal from '../components/Modal';
 
+const TAMANO = 20;
+
 export default function CategoriasPage() {
   const { sesion } = useAuth();
   const [categorias, setCategorias] = useState(null);
@@ -13,13 +15,17 @@ export default function CategoriasPage() {
   const [errorEliminar, setErrorEliminar] = useState('');
   const [eliminando, setEliminando] = useState(false);
   const [aviso, setAviso] = useState(null);
+  const [pagina, setPagina] = useState(1);
 
   const cargar = useCallback(async () => {
     try {
-      setCategorias(await apiFetch('/api/categorias', { token: sesion.token }));
+      const lista = await apiFetch('/api/categorias', { token: sesion.token });
+      setCategorias(lista);
       setError('');
+      return lista;
     } catch (e) {
       setError(e.code === 'SIN_CONEXION' ? 'La administración de categorías necesita conexión a internet.' : e.message);
+      return [];
     }
   }, [sesion.token]);
 
@@ -27,10 +33,19 @@ export default function CategoriasPage() {
     cargar();
   }, [cargar]);
 
-  function alGuardar(guardada) {
+  const totalPaginas = Math.max(1, Math.ceil((categorias?.length ?? 0) / TAMANO));
+  const visibles = (categorias ?? []).slice((pagina - 1) * TAMANO, pagina * TAMANO);
+
+  useEffect(() => {
+    setPagina((p) => Math.min(p, totalPaginas));
+  }, [totalPaginas]);
+
+  async function alGuardar(guardada) {
     const edito = Boolean(formulario.categoria);
     setFormulario(null);
-    cargar();
+    const lista = await cargar();
+    const indice = lista.findIndex((c) => c.id === guardada.id);
+    if (indice >= 0) setPagina(Math.floor(indice / TAMANO) + 1);
     setAviso({ titulo: edito ? 'Categoría actualizada' : 'Categoría creada', mensaje: guardada.nombre });
   }
 
@@ -65,8 +80,8 @@ export default function CategoriasPage() {
         <p className="vacio">Aún no hay categorías. Crea la primera para clasificar tus productos.</p>
       )}
 
-      {categorias && categorias.length > 0 && (
-        <div className="tabla-contenedor">
+      {visibles.length > 0 && (
+        <div className="tabla-contenedor tabla-contenedor--categorias">
           <table className="tabla">
             <thead>
               <tr>
@@ -76,7 +91,7 @@ export default function CategoriasPage() {
               </tr>
             </thead>
             <tbody>
-              {categorias.map((c) => (
+              {visibles.map((c) => (
                 <tr key={c.id}>
                   <td data-label="Categoría">
                     <span className="tabla__nombre"><strong>{c.nombre}</strong></span>
@@ -93,6 +108,19 @@ export default function CategoriasPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {categorias && categorias.length > 0 && (
+        <footer className="paginacion">
+          <span className="tenue">{categorias.length} {categorias.length === 1 ? 'categoría' : 'categorías'}</span>
+          {totalPaginas > 1 && (
+            <span className="paginacion__botones">
+              <button className="boton" disabled={pagina <= 1} onClick={() => setPagina((p) => p - 1)}>Anterior</button>
+              <span>{pagina} de {totalPaginas}</span>
+              <button className="boton" disabled={pagina >= totalPaginas} onClick={() => setPagina((p) => p + 1)}>Siguiente</button>
+            </span>
+          )}
+        </footer>
       )}
 
       {formulario && (
