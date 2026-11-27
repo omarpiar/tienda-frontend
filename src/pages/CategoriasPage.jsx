@@ -66,7 +66,7 @@ export default function CategoriasPage() {
       )}
 
       {categorias && categorias.length > 0 && (
-        <div className="tabla-contenedor">
+        <div className="tabla-contenedor tabla-contenedor--categorias">
           <table className="tabla">
             <thead>
               <tr>
