@@ -312,6 +312,9 @@ describe('flujo completo', () => {
     await waitFor(() => expect(screen.queryByText('Producto E2E')).toBeNull());
 
     await u.click(screen.getByRole('button', { name: 'Categorías' }));
+    expect(await screen.findByText('1 de 2')).toBeTruthy();
+    await u.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(screen.getByText('2 de 2')).toBeTruthy();
     const fila = await filaDe('Pruebas E2E');
     expect(fila).toBeTruthy();
     await u.click(within(fila).getByRole('button', { name: 'Eliminar' }));
