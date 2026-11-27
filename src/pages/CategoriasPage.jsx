@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import CategoriaForm from '../components/CategoriaForm';
 import Modal from '../components/Modal';
 
-const TAMANO = 5;
+const TAMANO = 20;
 
 export default function CategoriasPage() {
   const { sesion } = useAuth();
